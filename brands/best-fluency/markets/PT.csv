@@ -1,10 +1,10 @@
-platform_id,enabled,priority,status,listing_url,last_checked,notes
-google-business-profile,true,critical,manual_required,,,Confirm existing Best Fluency Google Business Profile and listing URL.
-bing-for-business,true,critical,pending,,,
-apple-business-connect,true,critical,pending,,,
-trustpilot,true,high,pending,,,
-cylex-pt,true,high,pending,,,
-paginas-amarelas-pt,true,high,pending,,,
-hotfrog-pt,true,medium,pending,,,
-fixando-pt,true,medium,pending,,,
-zaask-pt,true,medium,pending,,,
+platform_id,listing_name,enabled,priority,status,listing_url,last_checked,notes
+google-business-profile,Fluency,true,critical,in_progress,,2026-08-30,"Existing Google Business Profile uses the listing name ""Fluency"". The canonical brand remains ""Best Fluency"". The existing listing is currently being updated. Business hours are being aligned with the Best Fluency master data: Mon-Thu 08:00-21:00, Fri 08:00-17:00, Sat-Sun closed. Do not create a duplicate Google Business Profile. The Best Fluency name was previously not accepted for the coworking location because permanent Best Fluency signage was not available."
+bing-for-business,,true,critical,pending,,,
+apple-business-connect,,true,critical,pending,,,
+trustpilot,,true,high,pending,,,
+cylex-pt,,true,high,pending,,,
+paginas-amarelas-pt,,true,high,pending,,,
+hotfrog-pt,,true,medium,pending,,,
+fixando-pt,,true,medium,pending,,,
+zaask-pt,,true,medium,pending,,,

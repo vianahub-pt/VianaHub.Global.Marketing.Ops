@@ -174,6 +174,7 @@ export type ListingPriority = "critical" | "high" | "medium" | "low";
 
 export interface ListingEntry {
   platform_id: string;
+  listing_name?: string;
   enabled: boolean;
   priority: ListingPriority;
   status: ListingStatus;
