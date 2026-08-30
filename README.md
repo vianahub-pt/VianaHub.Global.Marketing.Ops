@@ -197,7 +197,7 @@ VianaHub.Global.Marketing.Ops/
 
 ## Status Atual
 
-**Versão:** 0.3.0 (Portugal Platform Catalog)
+**Versão:** 0.3.1 (Complete Best Fluency Business Profile)
 
 - [x] Estrutura de pastas criada
 - [x] Brands: Best Fluency e GERIT com dados iniciais
@@ -213,7 +213,7 @@ VianaHub.Global.Marketing.Ops/
 - [x] CLI funcional
 - [x] Testes unitários
 - [x] Catálogo real Portugal: 9 plataformas (4 globais + 5 PT)
-- [ ] Dados empresariais completos (Best Fluency)
+- [x] Perfil Best Fluency completo (phone, address, categories, services)
 - [ ] Adapters implementados
 - [ ] Workflows de automação
 

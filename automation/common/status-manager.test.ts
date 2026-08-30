@@ -185,6 +185,68 @@ describe("buildSummary", () => {
 
     expect(summary.dataQualityAlerts).toHaveLength(0);
   });
+
+  it("only shows missing email when phone and address are present", () => {
+    const profileWithPhone: BrandProfile = {
+      id: "partial",
+      name: "Partial",
+      website: "https://partial.com",
+      phone: "+351123456789",
+      address: { street: "Rua Test", city: "Lisboa", country: "PT" },
+    };
+
+    const platforms = [createPlatform({ id: "p1" })];
+    const statuses = buildStatus(platforms, []);
+    const summary = buildSummary(statuses, "Test Brand", "PT", "pt-PT", profileWithPhone);
+
+    expect(summary.dataQualityAlerts).toContain("missing email");
+    expect(summary.dataQualityAlerts).not.toContain("missing business phone");
+    expect(summary.dataQualityAlerts).not.toContain("incomplete address");
+  });
+
+  it("incomplete address requires both street and city", () => {
+    const profileNoStreet: BrandProfile = {
+      id: "no-street",
+      name: "No Street",
+      website: "https://no-street.com",
+      phone: "+351123456789",
+      address: { city: "Lisboa", country: "PT" },
+    };
+
+    const platforms = [createPlatform({ id: "p1" })];
+    const statuses = buildStatus(platforms, []);
+    const summary = buildSummary(statuses, "Test Brand", "PT", "pt-PT", profileNoStreet);
+
+    expect(summary.dataQualityAlerts).toContain("incomplete address");
+
+    const profileNoCity: BrandProfile = {
+      id: "no-city",
+      name: "No City",
+      website: "https://no-city.com",
+      phone: "+351123456789",
+      address: { street: "Rua Test", country: "PT" },
+    };
+
+    const summary2 = buildSummary(statuses, "Test Brand", "PT", "pt-PT", profileNoCity);
+    expect(summary2.dataQualityAlerts).toContain("incomplete address");
+  });
+
+  it("address without postalCode is considered complete", () => {
+    const profileNoPostal: BrandProfile = {
+      id: "no-postal",
+      name: "No Postal",
+      website: "https://no-postal.com",
+      phone: "+351123456789",
+      email: "info@no-postal.com",
+      address: { street: "Rua Test", city: "Lisboa", district: "Lisboa", country: "PT" },
+    };
+
+    const platforms = [createPlatform({ id: "p1" })];
+    const statuses = buildStatus(platforms, []);
+    const summary = buildSummary(statuses, "Test Brand", "PT", "pt-PT", profileNoPostal);
+
+    expect(summary.dataQualityAlerts).toHaveLength(0);
+  });
 });
 
 describe("sortByPriority", () => {
