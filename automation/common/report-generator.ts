@@ -40,8 +40,8 @@ export function generateReport(
   // Operational Queue
   lines.push("## Operational Queue");
   lines.push("");
-  lines.push("| Priority | Platform | Category | Status | Listing URL | Next Action |");
-  lines.push("|----------|----------|----------|--------|-------------|-------------|");
+  lines.push("| Priority | Platform | Listing Name | Category | Status | Listing URL | Next Action |");
+  lines.push("|----------|----------|--------------|----------|--------|-------------|-------------|");
 
   const sorted = [...statuses].sort((a, b) => {
     const aP = a.listing ? PRIORITY_ORDER[a.listing.priority] : 4;
@@ -52,11 +52,12 @@ export function generateReport(
 
   for (const s of sorted) {
     const priority = s.listing?.priority ?? "low";
+    const listingName = s.listing?.listing_name ?? "—";
     const category = s.platform.category ?? "other";
     const url = s.listing?.listing_url ?? "—";
     const nextAction = getNextAction(s);
     lines.push(
-      `| ${priority} | ${s.platform.name} | ${category} | ${s.status} | ${url} | ${nextAction} |`,
+      `| ${priority} | ${s.platform.name} | ${listingName} | ${category} | ${s.status} | ${url} | ${nextAction} |`,
     );
   }
 
@@ -89,7 +90,7 @@ function getNextAction(status: PlatformStatus): string {
     case "manual_required":
       return "Complete manual registration";
     case "in_progress":
-      return "Complete registration";
+      return "Complete/confirm update";
     case "submitted":
       return "Await verification";
     case "verification_required":

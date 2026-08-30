@@ -56,7 +56,7 @@ function parseCsv(raw: string): ListingEntry[] {
   const entries: ListingEntry[] = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(",").map((v) => v.trim());
+    const values = parseCsvLine(lines[i]);
     const row: Record<string, string> = {};
     for (let j = 0; j < header.length; j++) {
       row[header[j]] = values[j] ?? "";
@@ -64,6 +64,7 @@ function parseCsv(raw: string): ListingEntry[] {
 
     entries.push({
       platform_id: row.platform_id ?? "",
+      listing_name: row.listing_name || undefined,
       enabled: row.enabled === "true",
       priority: (row.priority as ListingPriority) ?? "medium",
       status: (row.status as ListingStatus) ?? "pending",
@@ -74,4 +75,26 @@ function parseCsv(raw: string): ListingEntry[] {
   }
 
   return entries;
+}
+
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  result.push(current.trim());
+  return result;
 }
