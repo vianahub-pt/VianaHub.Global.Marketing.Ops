@@ -24,10 +24,13 @@ function createPlatform(overrides: Partial<PlatformDefinition> & { id: string })
     registrationType: "form",
     automationMode: "semi-automatic",
     requiresLogin: false,
-    requiresCaptcha: false,
-    requiresEmailVerification: false,
-    requiresPhoneVerification: false,
+    requiresCaptcha: null,
+    requiresEmailVerification: null,
+    requiresPhoneVerification: null,
+    pricingModel: "unknown",
     enabled: true,
+    officialSourceUrl: `https://${overrides.id}.com/info`,
+    lastVerifiedAt: "2026-08-30",
     ...overrides,
   };
 }
@@ -212,5 +215,95 @@ describe("loadPlatforms", () => {
     );
 
     expect(() => loadPlatforms("PT", "operational", root)).toThrow("Platform file must contain an array");
+  });
+
+  it("preserves boolean | null fields", () => {
+    const root = join(tempDir, "null-fields");
+    mkdirSync(join(root, "data", "platforms", "global"), { recursive: true });
+    mkdirSync(join(root, "data", "platforms", "PT"), { recursive: true });
+
+    writeFileSync(
+      join(root, "data", "platforms", "global", "platforms.json"),
+      JSON.stringify([
+        createPlatform({
+          id: "null-platform",
+          requiresLogin: true,
+          requiresCaptcha: null,
+          requiresEmailVerification: null,
+          requiresPhoneVerification: null,
+        }),
+      ]),
+    );
+
+    writeFileSync(
+      join(root, "data", "platforms", "PT", "platforms.json"),
+      JSON.stringify([]),
+    );
+
+    const platforms = loadPlatforms("PT", "operational", root);
+    expect(platforms[0].requiresLogin).toBe(true);
+    expect(platforms[0].requiresCaptcha).toBeNull();
+    expect(platforms[0].requiresEmailVerification).toBeNull();
+    expect(platforms[0].requiresPhoneVerification).toBeNull();
+  });
+
+  it("preserves pricingModel field", () => {
+    const root = join(tempDir, "pricing-model");
+    mkdirSync(join(root, "data", "platforms", "global"), { recursive: true });
+    mkdirSync(join(root, "data", "platforms", "PT"), { recursive: true });
+
+    writeFileSync(
+      join(root, "data", "platforms", "global", "platforms.json"),
+      JSON.stringify([
+        createPlatform({
+          id: "free-platform",
+          pricingModel: "free",
+        }),
+        createPlatform({
+          id: "freemium-platform",
+          pricingModel: "freemium",
+        }),
+        createPlatform({
+          id: "credits-platform",
+          pricingModel: "credits",
+        }),
+      ]),
+    );
+
+    writeFileSync(
+      join(root, "data", "platforms", "PT", "platforms.json"),
+      JSON.stringify([]),
+    );
+
+    const platforms = loadPlatforms("PT", "operational", root);
+    expect(platforms.find((p) => p.id === "free-platform")?.pricingModel).toBe("free");
+    expect(platforms.find((p) => p.id === "freemium-platform")?.pricingModel).toBe("freemium");
+    expect(platforms.find((p) => p.id === "credits-platform")?.pricingModel).toBe("credits");
+  });
+
+  it("preserves officialSourceUrl and lastVerifiedAt", () => {
+    const root = join(tempDir, "metadata");
+    mkdirSync(join(root, "data", "platforms", "global"), { recursive: true });
+    mkdirSync(join(root, "data", "platforms", "PT"), { recursive: true });
+
+    writeFileSync(
+      join(root, "data", "platforms", "global", "platforms.json"),
+      JSON.stringify([
+        createPlatform({
+          id: "verified-platform",
+          officialSourceUrl: "https://example.com/info",
+          lastVerifiedAt: "2026-08-30",
+        }),
+      ]),
+    );
+
+    writeFileSync(
+      join(root, "data", "platforms", "PT", "platforms.json"),
+      JSON.stringify([]),
+    );
+
+    const platforms = loadPlatforms("PT", "operational", root);
+    expect(platforms[0].officialSourceUrl).toBe("https://example.com/info");
+    expect(platforms[0].lastVerifiedAt).toBe("2026-08-30");
   });
 });

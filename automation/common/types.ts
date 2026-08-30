@@ -119,6 +119,8 @@ export type RegistrationType = "form" | "api" | "manual" | "email";
 
 export type AutomationMode = "automatic" | "semi-automatic" | "manual";
 
+export type PricingModel = "free" | "freemium" | "credits" | "paid" | "unknown";
+
 export interface PlatformDefinition {
   id: string;
   name: string;
@@ -128,11 +130,14 @@ export interface PlatformDefinition {
   category?: PlatformCategory;
   registrationType: RegistrationType;
   automationMode: AutomationMode;
-  requiresLogin: boolean;
-  requiresCaptcha: boolean;
-  requiresEmailVerification: boolean;
-  requiresPhoneVerification: boolean;
+  requiresLogin: boolean | null;
+  requiresCaptcha: boolean | null;
+  requiresEmailVerification: boolean | null;
+  requiresPhoneVerification: boolean | null;
+  pricingModel?: PricingModel;
   enabled: boolean;
+  officialSourceUrl?: string;
+  lastVerifiedAt?: string;
   notes?: string;
 }
 
