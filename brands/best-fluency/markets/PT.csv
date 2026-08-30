@@ -1,1 +1,10 @@
 platform_id,enabled,priority,status,listing_url,last_checked,notes
+google-business-profile,true,critical,manual_required,,,Confirm existing Best Fluency Google Business Profile and listing URL.
+bing-for-business,true,critical,pending,,,
+apple-business-connect,true,critical,pending,,,
+trustpilot,true,high,pending,,,
+cylex-pt,true,high,pending,,,
+paginas-amarelas-pt,true,high,pending,,,
+hotfrog-pt,true,medium,pending,,,
+fixando-pt,true,medium,pending,,,
+zaask-pt,true,medium,pending,,,

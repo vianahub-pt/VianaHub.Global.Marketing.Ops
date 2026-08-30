@@ -197,7 +197,7 @@ VianaHub.Global.Marketing.Ops/
 
 ## Status Atual
 
-**Versão:** 0.2.0 (Marketing Ops Core)
+**Versão:** 0.3.0 (Portugal Platform Catalog)
 
 - [x] Estrutura de pastas criada
 - [x] Brands: Best Fluency e GERIT com dados iniciais
@@ -212,8 +212,8 @@ VianaHub.Global.Marketing.Ops/
 - [x] Status manager e report generator
 - [x] CLI funcional
 - [x] Testes unitários
+- [x] Catálogo real Portugal: 9 plataformas (4 globais + 5 PT)
 - [ ] Dados empresariais completos (Best Fluency)
-- [ ] Plataformas reais no catálogo
 - [ ] Adapters implementados
 - [ ] Workflows de automação
 
