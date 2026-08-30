@@ -1,12 +1,13 @@
 # Best Fluency — Marketing Ops — PT
 
-Generated at: 2026-08-30T09:47:35.092Z
+Generated at: 2026-08-30T10:01:32.528Z
 
 ## Summary
 
 Total platforms: 0
 Enabled: 0
 Pending: 0
+Manual required: 0
 In progress: 0
 Submitted: 0
 Verification required: 0

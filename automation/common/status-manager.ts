@@ -1,11 +1,12 @@
 import type {
-  PlatformDefinition,
+  PlatformWithSource,
   ListingEntry,
   PlatformStatus,
   OperationalSummary,
   ListingStatus,
   ListingPriority,
   BrandProfile,
+  PlatformSource,
 } from "./types.js";
 
 const PRIORITY_ORDER: Record<ListingPriority, number> = {
@@ -15,8 +16,19 @@ const PRIORITY_ORDER: Record<ListingPriority, number> = {
   low: 3,
 };
 
+/**
+ * Build platform statuses from platform definitions and listings.
+ *
+ * Source propagation:
+ * - Platforms loaded from global catalog → source: "global"
+ * - Platforms loaded from market catalog → source: "market"
+ * - Listings referencing unknown platforms → source: "market" (since listings come from market CSV)
+ *
+ * Note: Duplicate platform IDs across global/market are prohibited by loadPlatforms(),
+ * so "both" is never produced artificially.
+ */
 export function buildStatus(
-  platforms: PlatformDefinition[],
+  platforms: PlatformWithSource[],
   listings: ListingEntry[],
 ): PlatformStatus[] {
   const listingMap = new Map<string, ListingEntry>();
@@ -50,7 +62,7 @@ export function buildStatus(
       issues.push("Missing listing URL");
     }
 
-    statuses.push({ platform, listing, status, source: "global", issues });
+    statuses.push({ platform, listing, status, source: platform.source, issues });
   }
 
   // Listings referencing unknown platforms
@@ -73,7 +85,7 @@ export function buildStatus(
         },
         listing,
         status: "pending",
-        source: "global",
+        source: "market",
         issues: [`Listing references unknown platform "${listing.platform_id}"`],
       });
     }
@@ -101,8 +113,9 @@ export function buildSummary(
     dataQualityAlerts.push("incomplete address");
   }
 
-  const counts: Record<string, number> = {
+  const counts: Record<ListingStatus, number> = {
     pending: 0,
+    manual_required: 0,
     in_progress: 0,
     submitted: 0,
     verification_required: 0,
@@ -112,9 +125,7 @@ export function buildSummary(
   };
 
   for (const s of statuses) {
-    if (s.status in counts) {
-      counts[s.status]++;
-    }
+    counts[s.status]++;
   }
 
   return {
@@ -124,6 +135,7 @@ export function buildSummary(
     totalPlatforms: statuses.length,
     enabled: statuses.filter((s) => s.status !== "disabled").length,
     pending: counts.pending,
+    manualRequired: counts.manual_required,
     inProgress: counts.in_progress,
     submitted: counts.submitted,
     verificationRequired: counts.verification_required,
