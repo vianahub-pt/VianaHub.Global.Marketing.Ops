@@ -4,20 +4,29 @@
   "legalName": "",
   "website": "https://bestfluency.pt",
   "email": "",
-  "phone": "",
+  "phone": "+351 214 744 028",
   "address": {
-    "street": "",
-    "city": "",
+    "street": "Avenida Chaby Pinheiro, 5",
+    "city": "Amadora",
     "postalCode": "",
-    "district": "",
-    "country": ""
+    "district": "Lisboa",
+    "country": "PT"
   },
   "social": {
     "instagram": "https://www.instagram.com/bestfluencyoficial/",
     "linkedin": "https://www.linkedin.com/company/bestfluency"
   },
-  "categories": [],
-  "services": [],
+  "categories": ["language_school", "english_language_school", "education"],
+  "services": [
+    "Individual English lessons",
+    "Small-group English lessons",
+    "In-person English lessons",
+    "Online English lessons",
+    "English lessons for children",
+    "English lessons for teenagers",
+    "English lessons for adults",
+    "Trial English lesson"
+  ],
   "languages": [],
   "businessHours": {}
 }
