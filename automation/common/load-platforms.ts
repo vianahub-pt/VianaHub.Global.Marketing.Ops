@@ -1,51 +1,62 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { PlatformDefinition } from "./types.js";
+import type { PlatformDefinition, PlatformWithSource, PlatformSource } from "./types.js";
 
 export type LoadMode = "operational" | "diagnostic";
+
+interface LoadedPlatform {
+  platform: PlatformDefinition;
+  source: PlatformSource;
+  filePath: string;
+}
 
 export function loadPlatforms(
   countryCode: string,
   mode: LoadMode = "operational",
   rootDir?: string,
-): PlatformDefinition[] {
+): PlatformWithSource[] {
   const root = rootDir ?? resolve(process.cwd());
 
   const globalPath = resolve(root, "data", "platforms", "global", "platforms.json");
   const marketPath = resolve(root, "data", "platforms", countryCode, "platforms.json");
 
-  const globalPlatforms = readPlatformFile(globalPath);
-  const marketPlatforms = readPlatformFile(marketPath);
+  const globalPlatforms = readPlatformFile(globalPath).map((p) => ({
+    platform: p,
+    source: "global" as PlatformSource,
+    filePath: globalPath,
+  }));
 
-  const allPlatforms = [...globalPlatforms, ...marketPlatforms];
+  const marketPlatforms = readPlatformFile(marketPath).map((p) => ({
+    platform: p,
+    source: "market" as PlatformSource,
+    filePath: marketPath,
+  }));
 
-  // Detect duplicate IDs
-  const seen = new Map<string, string>();
-  for (const p of allPlatforms) {
-    const existing = seen.get(p.id);
+  const allLoaded = [...globalPlatforms, ...marketPlatforms];
+
+  // Detect duplicate IDs across global and market
+  const seen = new Map<string, LoadedPlatform>();
+  for (const item of allLoaded) {
+    const existing = seen.get(item.platform.id);
     if (existing) {
       throw new Error(
-        `Duplicate platform ID "${p.id}" found in: ${existing} and ${p.id.startsWith("example") ? marketPath : globalPath}`,
+        `Duplicate platform ID "${item.platform.id}" found in:\n${existing.filePath}\n${item.filePath}`,
       );
     }
-    seen.set(p.id, p.id.startsWith("example") ? "global" : "market");
+    seen.set(item.platform.id, item);
   }
 
-  // Determine source for each platform
-  const globalIds = new Set(globalPlatforms.map((p) => p.id));
-  const marketIds = new Set(marketPlatforms.map((p) => p.id));
-
-  const result: PlatformDefinition[] = [];
-  for (const p of allPlatforms) {
-    const inGlobal = globalIds.has(p.id);
-    const inMarket = marketIds.has(p.id);
-
-    // Skip disabled in operational mode
-    if (mode === "operational" && !p.enabled) {
+  // Filter based on mode
+  const result: PlatformWithSource[] = [];
+  for (const item of allLoaded) {
+    if (mode === "operational" && !item.platform.enabled) {
       continue;
     }
 
-    result.push(p);
+    result.push({
+      ...item.platform,
+      source: item.source,
+    });
   }
 
   return result;

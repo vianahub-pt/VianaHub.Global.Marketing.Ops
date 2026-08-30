@@ -97,6 +97,7 @@ function runStatus(args: CliArgs): void {
     console.log(`Platforms: ${summary.totalPlatforms}`);
     console.log(`Verified: ${summary.verified}`);
     console.log(`Pending: ${summary.pending}`);
+    console.log(`Manual required: ${summary.manualRequired}`);
     console.log(`In progress: ${summary.inProgress}`);
     console.log(`Submitted: ${summary.submitted}`);
     console.log(`Verification required: ${summary.verificationRequired}`);

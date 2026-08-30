@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildStatus, buildSummary, sortByPriority } from "./status-manager.js";
-import type { PlatformDefinition, ListingEntry, BrandProfile } from "./types.js";
+import type { PlatformWithSource, ListingEntry, BrandProfile, ListingStatus } from "./types.js";
 
 const mockBrandProfile: BrandProfile = {
   id: "test-brand",
@@ -8,103 +8,215 @@ const mockBrandProfile: BrandProfile = {
   website: "https://test.com",
 };
 
-const mockPlatforms: PlatformDefinition[] = [
-  {
-    id: "platform-a",
-    name: "Platform A",
+function createPlatform(overrides: Partial<PlatformWithSource> & { id: string }): PlatformWithSource {
+  return {
+    name: overrides.id,
     country: "PT",
     locale: "pt-PT",
-    url: "https://a.com",
+    url: `https://${overrides.id}.com`,
     registrationType: "form",
     automationMode: "semi-automatic",
-    requiresLogin: true,
-    requiresCaptcha: false,
-    requiresEmailVerification: false,
-    requiresPhoneVerification: false,
-    enabled: true,
-  },
-  {
-    id: "platform-b",
-    name: "Platform B",
-    country: "PT",
-    locale: "pt-PT",
-    url: "https://b.com",
-    registrationType: "form",
-    automationMode: "manual",
     requiresLogin: false,
     requiresCaptcha: false,
     requiresEmailVerification: false,
     requiresPhoneVerification: false,
     enabled: true,
-  },
-];
-
-const mockListings: ListingEntry[] = [
-  {
-    platform_id: "platform-a",
-    enabled: true,
-    priority: "high",
-    status: "verified",
-    listing_url: "https://a.com/listing/123",
-  },
-];
+    source: "global",
+    ...overrides,
+  };
+}
 
 describe("buildStatus", () => {
   it("identifies platform with listing", () => {
-    const statuses = buildStatus(mockPlatforms, mockListings);
-    const platformA = statuses.find((s) => s.platform.id === "platform-a");
-    expect(platformA).toBeDefined();
-    expect(platformA!.status).toBe("verified");
-    expect(platformA!.listing).not.toBeNull();
+    const platforms = [createPlatform({ id: "platform-a", source: "global" })];
+    const listings: ListingEntry[] = [
+      { platform_id: "platform-a", enabled: true, priority: "high", status: "verified", listing_url: "https://a.com/listing" },
+    ];
+
+    const statuses = buildStatus(platforms, listings);
+    expect(statuses).toHaveLength(1);
+    expect(statuses[0].status).toBe("verified");
+    expect(statuses[0].source).toBe("global");
   });
 
   it("identifies platform without listing as pending", () => {
-    const statuses = buildStatus(mockPlatforms, mockListings);
-    const platformB = statuses.find((s) => s.platform.id === "platform-b");
-    expect(platformB).toBeDefined();
-    expect(platformB!.status).toBe("pending");
+    const platforms = [createPlatform({ id: "platform-a", source: "market" })];
+    const listings: ListingEntry[] = [];
+
+    const statuses = buildStatus(platforms, listings);
+    expect(statuses).toHaveLength(1);
+    expect(statuses[0].status).toBe("pending");
+    expect(statuses[0].source).toBe("market");
   });
 
   it("identifies listing referencing unknown platform", () => {
-    const badListing: ListingEntry[] = [
-      {
-        platform_id: "unknown-platform",
-        enabled: true,
-        priority: "low",
-        status: "pending",
-      },
+    const platforms = [createPlatform({ id: "known-platform" })];
+    const listings: ListingEntry[] = [
+      { platform_id: "unknown-platform", enabled: true, priority: "low", status: "pending" },
     ];
-    const statuses = buildStatus(mockPlatforms, badListing);
+
+    const statuses = buildStatus(platforms, listings);
+    expect(statuses).toHaveLength(2);
     const unknown = statuses.find((s) => s.platform.id === "unknown-platform");
     expect(unknown).toBeDefined();
     expect(unknown!.issues.length).toBeGreaterThan(0);
+    expect(unknown!.source).toBe("market");
+  });
+
+  it("propagates source correctly from global", () => {
+    const platforms = [createPlatform({ id: "p1", source: "global" })];
+    const statuses = buildStatus(platforms, []);
+    expect(statuses[0].source).toBe("global");
+  });
+
+  it("propagates source correctly from market", () => {
+    const platforms = [createPlatform({ id: "p1", source: "market" })];
+    const statuses = buildStatus(platforms, []);
+    expect(statuses[0].source).toBe("market");
+  });
+});
+
+describe("buildStatus - all ListingStatus values", () => {
+  const allStatuses: ListingStatus[] = [
+    "pending",
+    "manual_required",
+    "in_progress",
+    "submitted",
+    "verification_required",
+    "verified",
+    "rejected",
+    "disabled",
+  ];
+
+  for (const statusValue of allStatuses) {
+    it(`handles status: ${statusValue}`, () => {
+      const platforms = [createPlatform({ id: `p-${statusValue}` })];
+      const listings: ListingEntry[] = [
+        { platform_id: `p-${statusValue}`, enabled: true, priority: "medium", status: statusValue },
+      ];
+
+      const statuses = buildStatus(platforms, listings);
+      expect(statuses[0].status).toBe(statusValue);
+    });
+  }
+
+  it("handles disabled platform", () => {
+    const platforms = [createPlatform({ id: "disabled-p", enabled: false })];
+    const listings: ListingEntry[] = [
+      { platform_id: "disabled-p", enabled: true, priority: "medium", status: "pending" },
+    ];
+
+    const statuses = buildStatus(platforms, listings);
+    expect(statuses[0].status).toBe("disabled");
+  });
+
+  it("handles disabled listing", () => {
+    const platforms = [createPlatform({ id: "disabled-l" })];
+    const listings: ListingEntry[] = [
+      { platform_id: "disabled-l", enabled: false, priority: "medium", status: "pending" },
+    ];
+
+    const statuses = buildStatus(platforms, listings);
+    expect(statuses[0].status).toBe("disabled");
   });
 });
 
 describe("buildSummary", () => {
   it("calculates summary correctly", () => {
-    const statuses = buildStatus(mockPlatforms, mockListings);
+    const platforms = [
+      createPlatform({ id: "p1", source: "global" }),
+      createPlatform({ id: "p2", source: "market" }),
+    ];
+    const listings: ListingEntry[] = [
+      { platform_id: "p1", enabled: true, priority: "high", status: "verified" },
+    ];
+
+    const statuses = buildStatus(platforms, listings);
     const summary = buildSummary(statuses, "Test Brand", "PT", "pt-PT", mockBrandProfile);
+
     expect(summary.totalPlatforms).toBe(2);
+    expect(summary.verified).toBe(1);
+    expect(summary.pending).toBe(1);
+    expect(summary.manualRequired).toBe(0);
+  });
+
+  it("counts manual_required status", () => {
+    const platforms = [
+      createPlatform({ id: "p1" }),
+      createPlatform({ id: "p2" }),
+      createPlatform({ id: "p3" }),
+    ];
+    const listings: ListingEntry[] = [
+      { platform_id: "p1", enabled: true, priority: "high", status: "manual_required" },
+      { platform_id: "p2", enabled: true, priority: "high", status: "manual_required" },
+      { platform_id: "p3", enabled: true, priority: "high", status: "verified" },
+    ];
+
+    const statuses = buildStatus(platforms, listings);
+    const summary = buildSummary(statuses, "Test Brand", "PT", "pt-PT", mockBrandProfile);
+
+    expect(summary.manualRequired).toBe(2);
     expect(summary.verified).toBe(1);
   });
 
   it("detects missing data quality alerts", () => {
-    const statuses = buildStatus(mockPlatforms, mockListings);
+    const platforms = [createPlatform({ id: "p1" })];
+    const statuses = buildStatus(platforms, []);
     const summary = buildSummary(statuses, "Test Brand", "PT", "pt-PT", mockBrandProfile);
+
     expect(summary.dataQualityAlerts).toContain("missing business phone");
     expect(summary.dataQualityAlerts).toContain("missing email");
+    expect(summary.dataQualityAlerts).toContain("incomplete address");
+  });
+
+  it("no data quality alerts when profile is complete", () => {
+    const completeProfile: BrandProfile = {
+      id: "complete",
+      name: "Complete",
+      website: "https://complete.com",
+      phone: "+351123456789",
+      email: "info@complete.com",
+      address: { street: "Rua Test", city: "Lisboa", country: "PT" },
+    };
+
+    const platforms = [createPlatform({ id: "p1" })];
+    const statuses = buildStatus(platforms, []);
+    const summary = buildSummary(statuses, "Test Brand", "PT", "pt-PT", completeProfile);
+
+    expect(summary.dataQualityAlerts).toHaveLength(0);
   });
 });
 
 describe("sortByPriority", () => {
   it("sorts by priority then alphabetically", () => {
-    const listings: ListingEntry[] = [
-      { platform_id: "platform-b", enabled: true, priority: "low", status: "pending" },
-      { platform_id: "platform-a", enabled: true, priority: "critical", status: "pending" },
+    const platforms = [
+      createPlatform({ id: "platform-c" }),
+      createPlatform({ id: "platform-a" }),
+      createPlatform({ id: "platform-b" }),
     ];
-    const statuses = buildStatus(mockPlatforms, listings);
+    const listings: ListingEntry[] = [
+      { platform_id: "platform-c", enabled: true, priority: "low", status: "pending" },
+      { platform_id: "platform-a", enabled: true, priority: "critical", status: "pending" },
+      { platform_id: "platform-b", enabled: true, priority: "high", status: "pending" },
+    ];
+
+    const statuses = buildStatus(platforms, listings);
     const sorted = sortByPriority(statuses);
+
+    expect(sorted[0].platform.id).toBe("platform-a");
+    expect(sorted[1].platform.id).toBe("platform-b");
+    expect(sorted[2].platform.id).toBe("platform-c");
+  });
+
+  it("handles platforms without listings", () => {
+    const platforms = [
+      createPlatform({ id: "platform-b" }),
+      createPlatform({ id: "platform-a" }),
+    ];
+
+    const statuses = buildStatus(platforms, []);
+    const sorted = sortByPriority(statuses);
+
     expect(sorted[0].platform.id).toBe("platform-a");
     expect(sorted[1].platform.id).toBe("platform-b");
   });

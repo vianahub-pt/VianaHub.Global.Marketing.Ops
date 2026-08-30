@@ -28,6 +28,7 @@ export function generateReport(
   lines.push(`Total platforms: ${summary.totalPlatforms}`);
   lines.push(`Enabled: ${summary.enabled}`);
   lines.push(`Pending: ${summary.pending}`);
+  lines.push(`Manual required: ${summary.manualRequired}`);
   lines.push(`In progress: ${summary.inProgress}`);
   lines.push(`Submitted: ${summary.submitted}`);
   lines.push(`Verification required: ${summary.verificationRequired}`);
@@ -85,6 +86,8 @@ function getNextAction(status: PlatformStatus): string {
   switch (status.status) {
     case "pending":
       return "Register on platform";
+    case "manual_required":
+      return "Complete manual registration";
     case "in_progress":
       return "Complete registration";
     case "submitted":

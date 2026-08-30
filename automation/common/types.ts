@@ -160,6 +160,14 @@ export interface ListingEntry {
   notes?: string;
 }
 
+// Platform with source tracking
+
+export type PlatformSource = "global" | "market";
+
+export interface PlatformWithSource extends PlatformDefinition {
+  source: PlatformSource;
+}
+
 // Operational Summary
 
 export interface OperationalSummary {
@@ -169,6 +177,7 @@ export interface OperationalSummary {
   totalPlatforms: number;
   enabled: number;
   pending: number;
+  manualRequired: number;
   inProgress: number;
   submitted: number;
   verificationRequired: number;
@@ -184,6 +193,6 @@ export interface PlatformStatus {
   platform: PlatformDefinition;
   listing: ListingEntry | null;
   status: ListingStatus;
-  source: "global" | "market" | "both";
+  source: PlatformSource;
   issues: string[];
 }

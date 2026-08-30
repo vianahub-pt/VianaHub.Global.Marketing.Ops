@@ -21,6 +21,8 @@ export type {
   RegistrationType,
   AutomationMode,
   PlatformDefinition,
+  PlatformSource,
+  PlatformWithSource,
   ListingStatus,
   ListingPriority,
   ListingEntry,
