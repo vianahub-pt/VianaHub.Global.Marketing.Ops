@@ -1,0 +1,65 @@
+{
+  "brandId": "gerit",
+  "markets": [
+    {
+      "country": "PT",
+      "locale": "pt-PT",
+      "enabled": false,
+      "priority": "secondary"
+    },
+    {
+      "country": "BR",
+      "locale": "pt-BR",
+      "enabled": false,
+      "priority": "secondary"
+    },
+    {
+      "country": "US",
+      "locale": "en-US",
+      "enabled": false,
+      "priority": "secondary"
+    },
+    {
+      "country": "ES",
+      "locale": "es-ES",
+      "enabled": false,
+      "priority": "secondary"
+    },
+    {
+      "country": "FR",
+      "locale": "fr-FR",
+      "enabled": false,
+      "priority": "secondary"
+    },
+    {
+      "country": "DE",
+      "locale": "de-DE",
+      "enabled": false,
+      "priority": "secondary"
+    },
+    {
+      "country": "IT",
+      "locale": "it-IT",
+      "enabled": false,
+      "priority": "secondary"
+    },
+    {
+      "country": "JP",
+      "locale": "ja-JP",
+      "enabled": false,
+      "priority": "secondary"
+    },
+    {
+      "country": "RU",
+      "locale": "ru-RU",
+      "enabled": false,
+      "priority": "secondary"
+    },
+    {
+      "country": "CN",
+      "locale": "zh-CN",
+      "enabled": false,
+      "priority": "secondary"
+    }
+  ]
+}

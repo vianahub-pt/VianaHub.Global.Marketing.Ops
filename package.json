@@ -1,0 +1,19 @@
+{
+  "name": "vianahub-global-marketing-ops",
+  "version": "0.1.0",
+  "description": "VianaHub Global Marketing Ops - Operações de marketing e presença digital para múltiplas marcas",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

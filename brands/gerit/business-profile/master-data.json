@@ -1,0 +1,23 @@
+{
+  "id": "gerit",
+  "name": "GERIT",
+  "legalName": "",
+  "website": "",
+  "email": "",
+  "phone": "",
+  "address": {
+    "street": "",
+    "city": "",
+    "postalCode": "",
+    "district": "",
+    "country": ""
+  },
+  "social": {
+    "instagram": "",
+    "linkedin": ""
+  },
+  "categories": [],
+  "services": [],
+  "languages": [],
+  "businessHours": {}
+}

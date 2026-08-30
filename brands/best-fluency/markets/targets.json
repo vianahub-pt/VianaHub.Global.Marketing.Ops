@@ -1,0 +1,65 @@
+{
+  "brandId": "best-fluency",
+  "markets": [
+    {
+      "country": "PT",
+      "locale": "pt-PT",
+      "enabled": true,
+      "priority": "primary"
+    },
+    {
+      "country": "BR",
+      "locale": "pt-BR",
+      "enabled": true,
+      "priority": "secondary"
+    },
+    {
+      "country": "US",
+      "locale": "en-US",
+      "enabled": true,
+      "priority": "secondary"
+    },
+    {
+      "country": "ES",
+      "locale": "es-ES",
+      "enabled": true,
+      "priority": "secondary"
+    },
+    {
+      "country": "FR",
+      "locale": "fr-FR",
+      "enabled": true,
+      "priority": "secondary"
+    },
+    {
+      "country": "DE",
+      "locale": "de-DE",
+      "enabled": true,
+      "priority": "secondary"
+    },
+    {
+      "country": "IT",
+      "locale": "it-IT",
+      "enabled": true,
+      "priority": "secondary"
+    },
+    {
+      "country": "JP",
+      "locale": "ja-JP",
+      "enabled": true,
+      "priority": "secondary"
+    },
+    {
+      "country": "RU",
+      "locale": "ru-RU",
+      "enabled": true,
+      "priority": "secondary"
+    },
+    {
+      "country": "CN",
+      "locale": "zh-CN",
+      "enabled": true,
+      "priority": "secondary"
+    }
+  ]
+}

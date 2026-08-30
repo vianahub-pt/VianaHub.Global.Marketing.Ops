@@ -1,0 +1,17 @@
+[
+  {
+    "id": "example-global",
+    "name": "Example Global Platform",
+    "country": "GLOBAL",
+    "locale": null,
+    "url": "https://example.com",
+    "registrationType": "api",
+    "automationMode": "automatic",
+    "requiresLogin": false,
+    "requiresCaptcha": false,
+    "requiresEmailVerification": false,
+    "requiresPhoneVerification": false,
+    "enabled": false,
+    "notes": "Exemplo estrutural - não é uma plataforma real"
+  }
+]
