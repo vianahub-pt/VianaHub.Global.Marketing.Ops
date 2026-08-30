@@ -1,17 +1,1 @@
-[
-  {
-    "id": "example-pt",
-    "name": "Example Platform Portugal",
-    "country": "PT",
-    "locale": "pt-PT",
-    "url": "https://example.pt",
-    "registrationType": "form",
-    "automationMode": "semi-automatic",
-    "requiresLogin": true,
-    "requiresCaptcha": false,
-    "requiresEmailVerification": true,
-    "requiresPhoneVerification": false,
-    "enabled": false,
-    "notes": "Exemplo estrutural - não é uma plataforma real"
-  }
-]
+[]

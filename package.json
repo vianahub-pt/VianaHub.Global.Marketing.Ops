@@ -6,12 +6,19 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "npx playwright test",
-    "test:headed": "npx playwright test --headed"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "ops": "node --import tsx automation/cli.ts",
+    "ops:status": "npm run ops -- status",
+    "ops:validate": "npm run ops -- validate",
+    "ops:report": "npm run ops -- report"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
-    "typescript": "^5.8.3"
+    "@types/node": "^26.4.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.1"
   },
   "engines": {
     "node": ">=20"

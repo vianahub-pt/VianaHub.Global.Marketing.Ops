@@ -50,3 +50,140 @@ export interface PlatformAdapter {
    */
   dispose(): Promise<void>;
 }
+
+// ============================================================
+// Marketing Ops Core Types
+// ============================================================
+
+// Brand Profile
+
+export interface Address {
+  street?: string;
+  city?: string;
+  postalCode?: string;
+  district?: string;
+  country?: string;
+}
+
+export interface SocialProfiles {
+  instagram?: string;
+  linkedin?: string;
+  facebook?: string;
+  twitter?: string;
+}
+
+export interface BrandProfile {
+  id: string;
+  name: string;
+  legalName?: string;
+  website: string;
+  email?: string;
+  phone?: string;
+  address?: Address;
+  social?: SocialProfiles;
+  categories?: string[];
+  services?: string[];
+  languages?: string[];
+  businessHours?: Record<string, unknown>;
+}
+
+// Market
+
+export type MarketPriority = "primary" | "secondary" | "tertiary";
+
+export interface MarketTarget {
+  country: string;
+  locale: string;
+  enabled: boolean;
+  priority: MarketPriority;
+}
+
+export interface TargetsFile {
+  brandId: string;
+  markets: MarketTarget[];
+}
+
+// Platform
+
+export type PlatformCategory =
+  | "search_maps"
+  | "business_directory"
+  | "local_directory"
+  | "reviews"
+  | "education_marketplace"
+  | "professional_network"
+  | "social_network"
+  | "other";
+
+export type RegistrationType = "form" | "api" | "manual" | "email";
+
+export type AutomationMode = "automatic" | "semi-automatic" | "manual";
+
+export interface PlatformDefinition {
+  id: string;
+  name: string;
+  country: string;
+  locale: string | null;
+  url: string;
+  category?: PlatformCategory;
+  registrationType: RegistrationType;
+  automationMode: AutomationMode;
+  requiresLogin: boolean;
+  requiresCaptcha: boolean;
+  requiresEmailVerification: boolean;
+  requiresPhoneVerification: boolean;
+  enabled: boolean;
+  notes?: string;
+}
+
+// Listing
+
+export type ListingStatus =
+  | "pending"
+  | "manual_required"
+  | "in_progress"
+  | "submitted"
+  | "verification_required"
+  | "verified"
+  | "rejected"
+  | "disabled";
+
+export type ListingPriority = "critical" | "high" | "medium" | "low";
+
+export interface ListingEntry {
+  platform_id: string;
+  enabled: boolean;
+  priority: ListingPriority;
+  status: ListingStatus;
+  listing_url?: string;
+  last_checked?: string;
+  notes?: string;
+}
+
+// Operational Summary
+
+export interface OperationalSummary {
+  brand: string;
+  market: string;
+  locale: string;
+  totalPlatforms: number;
+  enabled: number;
+  pending: number;
+  inProgress: number;
+  submitted: number;
+  verificationRequired: number;
+  verified: number;
+  rejected: number;
+  disabled: number;
+  dataQualityAlerts: string[];
+}
+
+// Status Manager
+
+export interface PlatformStatus {
+  platform: PlatformDefinition;
+  listing: ListingEntry | null;
+  status: ListingStatus;
+  source: "global" | "market" | "both";
+  issues: string[];
+}

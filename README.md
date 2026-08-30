@@ -188,9 +188,16 @@ VianaHub.Global.Marketing.Ops/
 
 ---
 
+## Current Operational Focus
+
+**Brand:** Best Fluency
+**Market:** Portugal (PT)
+
+---
+
 ## Status Atual
 
-**Versão:** 0.1.0 (fundação)
+**Versão:** 0.2.0 (Marketing Ops Core)
 
 - [x] Estrutura de pastas criada
 - [x] Brands: Best Fluency e GERIT com dados iniciais
@@ -200,7 +207,12 @@ VianaHub.Global.Marketing.Ops/
 - [x] Configuração Playwright
 - [x] Documentação de arquitetura e política
 - [x] TypeScript configurado
-- [ ] Dados empresariais completos (Best Fluency / GERIT)
+- [x] Marketing Ops Core implementado
+- [x] Brand/Market/Platform loaders
+- [x] Status manager e report generator
+- [x] CLI funcional
+- [x] Testes unitários
+- [ ] Dados empresariais completos (Best Fluency)
 - [ ] Plataformas reais no catálogo
 - [ ] Adapters implementados
 - [ ] Workflows de automação
@@ -221,8 +233,13 @@ npm install
 # Verificar tipos
 npm run typecheck
 
-# Executar testes Playwright
+# Executar testes unitários
 npm run test
+
+# Marketing Ops CLI
+npm run ops -- validate --brand best-fluency --market PT
+npm run ops -- status --brand best-fluency --market PT
+npm run ops -- report --brand best-fluency --market PT
 ```
 
 ---
