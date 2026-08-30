@@ -1,6 +1,6 @@
 # Best Fluency — Marketing Ops — PT
 
-Generated at: 2026-08-30T10:30:20.336Z
+Generated at: 2026-08-30T10:51:53.918Z
 
 ## Summary
 
@@ -31,4 +31,4 @@ Disabled: 0
 
 ## Data Quality
 
-- ⚠ missing email
+No data quality issues detected.

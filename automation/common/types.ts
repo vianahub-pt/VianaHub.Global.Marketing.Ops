@@ -72,6 +72,22 @@ export interface SocialProfiles {
   twitter?: string;
 }
 
+export interface BusinessDayHours {
+  closed: boolean;
+  open?: string;
+  close?: string;
+}
+
+export interface BusinessHours {
+  monday: BusinessDayHours;
+  tuesday: BusinessDayHours;
+  wednesday: BusinessDayHours;
+  thursday: BusinessDayHours;
+  friday: BusinessDayHours;
+  saturday: BusinessDayHours;
+  sunday: BusinessDayHours;
+}
+
 export interface BrandProfile {
   id: string;
   name: string;
@@ -83,8 +99,9 @@ export interface BrandProfile {
   social?: SocialProfiles;
   categories?: string[];
   services?: string[];
-  languages?: string[];
-  businessHours?: Record<string, unknown>;
+  languagesTaught?: string[];
+  supportedLocales?: string[];
+  businessHours?: BusinessHours;
 }
 
 // Market

@@ -3,12 +3,12 @@
   "name": "Best Fluency",
   "legalName": "",
   "website": "https://bestfluency.pt",
-  "email": "",
-  "phone": "+351 214 744 028",
+  "email": "vianahub.pt@gmail.com",
+  "phone": "+351 21 474 4028",
   "address": {
     "street": "Avenida Chaby Pinheiro, 5",
     "city": "Amadora",
-    "postalCode": "",
+    "postalCode": "2700-301",
     "district": "Lisboa",
     "country": "PT"
   },
@@ -16,7 +16,11 @@
     "instagram": "https://www.instagram.com/bestfluencyoficial/",
     "linkedin": "https://www.linkedin.com/company/bestfluency"
   },
-  "categories": ["language_school", "english_language_school", "education"],
+  "categories": [
+    "language_school",
+    "english_language_school",
+    "education"
+  ],
   "services": [
     "Individual English lessons",
     "Small-group English lessons",
@@ -27,6 +31,54 @@
     "English lessons for adults",
     "Trial English lesson"
   ],
-  "languages": [],
-  "businessHours": {}
+  "languagesTaught": [
+    "English",
+    "Spanish",
+    "French",
+    "Portuguese"
+  ],
+  "supportedLocales": [
+    "pt-PT",
+    "en-US",
+    "es-ES",
+    "fr-FR",
+    "de-DE",
+    "it-IT",
+    "ja-JP",
+    "ru-RU",
+    "zh-CN"
+  ],
+  "businessHours": {
+    "monday": {
+      "closed": false,
+      "open": "08:00",
+      "close": "21:00"
+    },
+    "tuesday": {
+      "closed": false,
+      "open": "08:00",
+      "close": "21:00"
+    },
+    "wednesday": {
+      "closed": false,
+      "open": "08:00",
+      "close": "21:00"
+    },
+    "thursday": {
+      "closed": false,
+      "open": "08:00",
+      "close": "21:00"
+    },
+    "friday": {
+      "closed": false,
+      "open": "08:00",
+      "close": "17:00"
+    },
+    "saturday": {
+      "closed": true
+    },
+    "sunday": {
+      "closed": true
+    }
+  }
 }

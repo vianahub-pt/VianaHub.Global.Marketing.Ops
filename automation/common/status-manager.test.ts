@@ -283,3 +283,88 @@ describe("sortByPriority", () => {
     expect(sorted[1].platform.id).toBe("platform-b");
   });
 });
+
+describe("BrandProfile - new fields", () => {
+  it("supports languagesTaught", () => {
+    const profile: BrandProfile = {
+      id: "test",
+      name: "Test",
+      website: "https://test.com",
+      languagesTaught: ["English", "Spanish", "French", "Portuguese"],
+    };
+
+    expect(profile.languagesTaught).toHaveLength(4);
+    expect(profile.languagesTaught).toContain("English");
+  });
+
+  it("supports supportedLocales", () => {
+    const profile: BrandProfile = {
+      id: "test",
+      name: "Test",
+      website: "https://test.com",
+      supportedLocales: ["pt-PT", "en-US", "es-ES"],
+    };
+
+    expect(profile.supportedLocales).toHaveLength(3);
+    expect(profile.supportedLocales).toContain("pt-PT");
+  });
+
+  it("languagesTaught and supportedLocales are independent", () => {
+    const profile: BrandProfile = {
+      id: "test",
+      name: "Test",
+      website: "https://test.com",
+      languagesTaught: ["English"],
+      supportedLocales: ["pt-PT", "en-US", "ja-JP", "zh-CN"],
+    };
+
+    expect(profile.languagesTaught).toHaveLength(1);
+    expect(profile.supportedLocales).toHaveLength(4);
+  });
+
+  it("supports structured businessHours", () => {
+    const profile: BrandProfile = {
+      id: "test",
+      name: "Test",
+      website: "https://test.com",
+      businessHours: {
+        monday: { closed: false, open: "08:00", close: "21:00" },
+        tuesday: { closed: false, open: "08:00", close: "21:00" },
+        wednesday: { closed: false, open: "08:00", close: "21:00" },
+        thursday: { closed: false, open: "08:00", close: "21:00" },
+        friday: { closed: false, open: "08:00", close: "17:00" },
+        saturday: { closed: true },
+        sunday: { closed: true },
+      },
+    };
+
+    expect(profile.businessHours?.monday.closed).toBe(false);
+    expect(profile.businessHours?.monday.open).toBe("08:00");
+    expect(profile.businessHours?.monday.close).toBe("21:00");
+    expect(profile.businessHours?.saturday.closed).toBe(true);
+    expect(profile.businessHours?.saturday.open).toBeUndefined();
+  });
+
+  it("no data quality alerts with complete Best Fluency profile", () => {
+    const bestFluencyProfile: BrandProfile = {
+      id: "best-fluency",
+      name: "Best Fluency",
+      website: "https://bestfluency.pt",
+      email: "vianahub.pt@gmail.com",
+      phone: "+351 21 474 4028",
+      address: {
+        street: "Avenida Chaby Pinheiro, 5",
+        city: "Amadora",
+        postalCode: "2700-301",
+        district: "Lisboa",
+        country: "PT",
+      },
+    };
+
+    const platforms = [createPlatform({ id: "p1" })];
+    const statuses = buildStatus(platforms, []);
+    const summary = buildSummary(statuses, "Best Fluency", "PT", "pt-PT", bestFluencyProfile);
+
+    expect(summary.dataQualityAlerts).toHaveLength(0);
+  });
+});
