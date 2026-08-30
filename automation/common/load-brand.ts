@@ -42,8 +42,9 @@ export function loadBrand(brandId: string, rootDir?: string): BrandProfile {
   if (data.social) profile.social = data.social as BrandProfile["social"];
   if (data.categories) profile.categories = data.categories as string[];
   if (data.services) profile.services = data.services as string[];
-  if (data.languages) profile.languages = data.languages as string[];
-  if (data.businessHours) profile.businessHours = data.businessHours as Record<string, unknown>;
+  if (data.languagesTaught) profile.languagesTaught = data.languagesTaught as string[];
+  if (data.supportedLocales) profile.supportedLocales = data.supportedLocales as string[];
+  if (data.businessHours) profile.businessHours = data.businessHours as BrandProfile["businessHours"];
 
   return profile;
 }
