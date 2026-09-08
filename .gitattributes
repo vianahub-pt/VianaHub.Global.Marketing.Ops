@@ -1,0 +1,44 @@
+# Enforce LF line endings for all text files
+* text=auto eol=lf
+
+# Explicitly mark binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text eol=lf
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+
+# Shell scripts must be LF
+*.sh text eol=lf
+*.bash text eol=lf
+
+# GitHub Actions workflows must be LF
+.github/**/*.yml text eol=lf
+.github/**/*.yaml text eol=lf
+
+# Node.js
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.ts text eol=lf
+*.json text eol=lf
+*.jsonc text eol=lf
+
+# Config files
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+
+# Documentation
+*.md text eol=lf
+*.txt text eol=lf
+*.csv text eol=lf
+
+# Lock files - keep as-is (auto-generated)
+package-lock.json -diff
