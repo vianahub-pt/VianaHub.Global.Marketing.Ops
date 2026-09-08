@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import type { PlatformDefinition, PlatformWithSource, PlatformSource } from "./types.js";
+import { validateMarket, safeResolve } from "./path-security.js";
+import { PlatformDefinitionSchema } from "./schemas.js";
 
 export type LoadMode = "operational" | "diagnostic";
 
@@ -15,10 +16,12 @@ export function loadPlatforms(
   mode: LoadMode = "operational",
   rootDir?: string,
 ): PlatformWithSource[] {
-  const root = rootDir ?? resolve(process.cwd());
+  validateMarket(countryCode);
 
-  const globalPath = resolve(root, "data", "platforms", "global", "platforms.json");
-  const marketPath = resolve(root, "data", "platforms", countryCode, "platforms.json");
+  const root = rootDir ?? process.cwd();
+
+  const globalPath = safeResolve(root, "data", "platforms", "global", "platforms.json");
+  const marketPath = safeResolve(root, "data", "platforms", countryCode, "platforms.json");
 
   const globalPlatforms = readPlatformFile(globalPath).map((p) => ({
     platform: p,
@@ -81,5 +84,15 @@ function readPlatformFile(filePath: string): PlatformDefinition[] {
     throw new Error(`Platform file must contain an array: ${filePath}`);
   }
 
-  return data as PlatformDefinition[];
+  const platforms: PlatformDefinition[] = [];
+  for (let i = 0; i < data.length; i++) {
+    const validated = PlatformDefinitionSchema.safeParse(data[i]);
+    if (!validated.success) {
+      const issues = validated.error.issues.map((j) => j.message).join("; ");
+      throw new Error(`Platform file ${filePath}, entry ${i}: ${issues}`);
+    }
+    platforms.push(validated.data as PlatformDefinition);
+  }
+
+  return platforms;
 }

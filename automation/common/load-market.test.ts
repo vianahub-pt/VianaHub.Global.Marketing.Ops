@@ -73,4 +73,48 @@ describe("loadMarket", () => {
 
     expect(() => loadMarket("test-brand", "ZZ", root)).toThrow('Market "ZZ" is disabled');
   });
+
+  it("throws for brandId mismatch", () => {
+    const root = join(tempDir, "brand-mismatch");
+    mkdirSync(join(root, "brands", "test-brand", "markets"), { recursive: true });
+
+    writeFileSync(
+      join(root, "brands", "test-brand", "markets", "targets.json"),
+      JSON.stringify({
+        brandId: "different-brand",
+        markets: [{ country: "PT", locale: "pt-PT", enabled: true, priority: "primary" }],
+      }),
+    );
+
+    writeFileSync(
+      join(root, "brands", "test-brand", "markets", "PT.csv"),
+      "platform_id,enabled,priority,status\n",
+    );
+
+    expect(() => loadMarket("test-brand", "PT", root)).toThrow("brandId mismatch");
+  });
+
+  it("throws for invalid JSON in targets file", () => {
+    const root = join(tempDir, "invalid-json");
+    mkdirSync(join(root, "brands", "test-brand", "markets"), { recursive: true });
+
+    writeFileSync(join(root, "brands", "test-brand", "markets", "targets.json"), "not json");
+
+    expect(() => loadMarket("test-brand", "PT", root)).toThrow("Invalid JSON in targets file");
+  });
+
+  it("throws for missing CSV file", () => {
+    const root = join(tempDir, "missing-csv");
+    mkdirSync(join(root, "brands", "test-brand", "markets"), { recursive: true });
+
+    writeFileSync(
+      join(root, "brands", "test-brand", "markets", "targets.json"),
+      JSON.stringify({
+        brandId: "test-brand",
+        markets: [{ country: "PT", locale: "pt-PT", enabled: true, priority: "primary" }],
+      }),
+    );
+
+    expect(() => loadMarket("test-brand", "PT", root)).toThrow("Market CSV not found");
+  });
 });

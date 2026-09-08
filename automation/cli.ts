@@ -1,10 +1,9 @@
-import { writeFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { loadBrand } from "./common/load-brand.js";
 import { loadMarket } from "./common/load-market.js";
 import { loadPlatforms } from "./common/load-platforms.js";
 import { buildStatus, buildSummary } from "./common/status-manager.js";
-import { generateReport } from "./common/report-generator.js";
+import { generateReport, writeReportAtomic } from "./common/report-generator.js";
+import { validateBrandId, validateMarket, PathSecurityError } from "./common/path-security.js";
 
 interface CliArgs {
   command: string;
@@ -47,36 +46,66 @@ function validateArgs(args: CliArgs): void {
     console.error("Missing --market argument");
     process.exit(1);
   }
+
+  // Validate brand ID format (prevents path traversal)
+  try {
+    validateBrandId(args.brand);
+  } catch (err) {
+    if (err instanceof PathSecurityError) {
+      console.error(`Invalid brand: ${err.message}`);
+    } else {
+      console.error(`Invalid brand: ${(err as Error).message}`);
+    }
+    process.exit(1);
+  }
+
+  // Validate market format
+  try {
+    validateMarket(args.market);
+  } catch (err) {
+    if (err instanceof PathSecurityError) {
+      console.error(`Invalid market: ${err.message}`);
+    } else {
+      console.error(`Invalid market: ${(err as Error).message}`);
+    }
+    process.exit(1);
+  }
 }
 
 function runValidate(args: CliArgs): void {
   try {
     const brandProfile = loadBrand(args.brand);
-    console.log(`✅ Brand loaded: ${brandProfile.name} (${brandProfile.id})`);
+    console.log(`Brand loaded: ${brandProfile.name} (${brandProfile.id})`);
 
     const { target } = loadMarket(args.brand, args.market);
-    console.log(`✅ Market ${args.market} enabled: ${target.enabled} (locale: ${target.locale})`);
+    console.log(`Market ${args.market} enabled: ${target.enabled} (locale: ${target.locale})`);
 
     const platforms = loadPlatforms(args.market, "operational");
-    console.log(`✅ Platforms loaded: ${platforms.length} total`);
+    console.log(`Platforms loaded: ${platforms.length} total`);
 
     const { listings } = loadMarket(args.brand, args.market);
-    console.log(`✅ Listings loaded: ${listings.length}`);
+    console.log(`Listings loaded: ${listings.length}`);
 
     const statuses = buildStatus(platforms, listings);
-    const summary = buildSummary(statuses, brandProfile.name, args.market, target.locale, brandProfile);
+    const summary = buildSummary(
+      statuses,
+      brandProfile.name,
+      args.market,
+      target.locale,
+      brandProfile,
+    );
 
     console.log("");
-    console.log("✅ Validation passed");
+    console.log("Validation passed");
     if (summary.dataQualityAlerts.length > 0) {
       console.log("");
       console.log("Data quality alerts:");
       for (const alert of summary.dataQualityAlerts) {
-        console.log(`  ⚠ ${alert}`);
+        console.log(`  Warning: ${alert}`);
       }
     }
   } catch (err) {
-    console.error(`❌ Error: ${(err as Error).message}`);
+    console.error(`Error: ${(err as Error).message}`);
     process.exit(1);
   }
 }
@@ -88,7 +117,13 @@ function runStatus(args: CliArgs): void {
     const platforms = loadPlatforms(args.market, "operational");
     const { listings } = loadMarket(args.brand, args.market);
     const statuses = buildStatus(platforms, listings);
-    const summary = buildSummary(statuses, brandProfile.name, args.market, target.locale, brandProfile);
+    const summary = buildSummary(
+      statuses,
+      brandProfile.name,
+      args.market,
+      target.locale,
+      brandProfile,
+    );
 
     console.log(`Brand: ${summary.brand}`);
     console.log(`Market: ${summary.market}`);
@@ -108,11 +143,11 @@ function runStatus(args: CliArgs): void {
       console.log("");
       console.log("Data quality:");
       for (const alert of summary.dataQualityAlerts) {
-        console.log(`  ⚠ ${alert}`);
+        console.log(`  Warning: ${alert}`);
       }
     }
   } catch (err) {
-    console.error(`❌ Error: ${(err as Error).message}`);
+    console.error(`Error: ${(err as Error).message}`);
     process.exit(1);
   }
 }
@@ -124,17 +159,21 @@ function runReport(args: CliArgs): void {
     const platforms = loadPlatforms(args.market, "operational");
     const { listings } = loadMarket(args.brand, args.market);
     const statuses = buildStatus(platforms, listings);
-    const summary = buildSummary(statuses, brandProfile.name, args.market, target.locale, brandProfile);
+    const summary = buildSummary(
+      statuses,
+      brandProfile.name,
+      args.market,
+      target.locale,
+      brandProfile,
+    );
 
     const report = generateReport(summary, statuses, brandProfile);
+    const reportsDir = process.cwd() + "/reports";
+    const reportPath = writeReportAtomic(report, reportsDir, args.brand, args.market);
 
-    const reportDir = resolve(process.cwd(), "reports", args.brand, args.market);
-    const reportPath = resolve(reportDir, "README.md");
-    writeFileSync(reportPath, report, "utf-8");
-
-    console.log(`✅ Report generated: ${reportPath}`);
+    console.log(`Report generated: ${reportPath}`);
   } catch (err) {
-    console.error(`❌ Error: ${(err as Error).message}`);
+    console.error(`Error: ${(err as Error).message}`);
     process.exit(1);
   }
 }

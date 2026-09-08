@@ -6,7 +6,6 @@ import type {
   ListingStatus,
   ListingPriority,
   BrandProfile,
-  PlatformSource,
 } from "./types.js";
 
 const PRIORITY_ORDER: Record<ListingPriority, number> = {
@@ -150,7 +149,9 @@ export function sortByPriority(statuses: PlatformStatus[]): PlatformStatus[] {
   return [...statuses].sort((a, b) => {
     const aPriority = a.listing ? PRIORITY_ORDER[a.listing.priority] : 4;
     const bPriority = b.listing ? PRIORITY_ORDER[b.listing.priority] : 4;
-    if (aPriority !== bPriority) return aPriority - bPriority;
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
     return a.platform.name.localeCompare(b.platform.name);
   });
 }

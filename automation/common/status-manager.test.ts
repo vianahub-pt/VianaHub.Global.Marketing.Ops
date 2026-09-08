@@ -8,7 +8,9 @@ const mockBrandProfile: BrandProfile = {
   website: "https://test.com",
 };
 
-function createPlatform(overrides: Partial<PlatformWithSource> & { id: string }): PlatformWithSource {
+function createPlatform(
+  overrides: Partial<PlatformWithSource> & { id: string },
+): PlatformWithSource {
   return {
     name: overrides.id,
     country: "PT",
@@ -30,7 +32,13 @@ describe("buildStatus", () => {
   it("identifies platform with listing", () => {
     const platforms = [createPlatform({ id: "platform-a", source: "global" })];
     const listings: ListingEntry[] = [
-      { platform_id: "platform-a", enabled: true, priority: "high", status: "verified", listing_url: "https://a.com/listing" },
+      {
+        platform_id: "platform-a",
+        enabled: true,
+        priority: "high",
+        status: "verified",
+        listing_url: "https://a.com/listing",
+      },
     ];
 
     const statuses = buildStatus(platforms, listings);
@@ -271,10 +279,7 @@ describe("sortByPriority", () => {
   });
 
   it("handles platforms without listings", () => {
-    const platforms = [
-      createPlatform({ id: "platform-b" }),
-      createPlatform({ id: "platform-a" }),
-    ];
+    const platforms = [createPlatform({ id: "platform-b" }), createPlatform({ id: "platform-a" })];
 
     const statuses = buildStatus(platforms, []);
     const sorted = sortByPriority(statuses);
