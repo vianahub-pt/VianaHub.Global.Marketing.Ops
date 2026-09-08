@@ -50,7 +50,7 @@ describe("loadBrand", () => {
       }),
     );
 
-    expect(() => loadBrand("invalid-brand", root)).toThrow(/Missing required field "name"/);
+    expect(() => loadBrand("invalid-brand", root)).toThrow(/name.*Required/i);
   });
 
   it("throws for missing required field (website)", () => {
@@ -65,7 +65,7 @@ describe("loadBrand", () => {
       }),
     );
 
-    expect(() => loadBrand("invalid-brand", root)).toThrow(/Missing required field "website"/);
+    expect(() => loadBrand("invalid-brand", root)).toThrow(/website.*Required/i);
   });
 
   it("loads brand with optional fields", () => {

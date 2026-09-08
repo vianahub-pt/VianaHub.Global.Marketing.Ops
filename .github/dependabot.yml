@@ -1,0 +1,52 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Lisbon
+    open-pull-requests-limit: 5
+    reviewers:
+      - viana
+    labels:
+      - dependencies
+      - automated
+    groups:
+      development:
+        dependency-type: development
+        patterns:
+          - "@types/*"
+          - "eslint*"
+          - "prettier"
+          - "vitest*"
+          - "tsx"
+      production:
+        dependency-type: production
+        patterns:
+          - "zod"
+    ignore:
+      - dependency-name: "@playwright/test"
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Lisbon
+    open-pull-requests-limit: 3
+    reviewers:
+      - viana
+    labels:
+      - dependencies
+      - automated
+      - github-actions
+    groups:
+      actions:
+        patterns:
+          - "*"

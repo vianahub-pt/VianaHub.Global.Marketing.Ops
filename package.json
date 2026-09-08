@@ -1,26 +1,42 @@
 {
   "name": "vianahub-global-marketing-ops",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "VianaHub Global Marketing Ops - Operações de marketing e presença digital para múltiplas marcas",
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/automation/cli.js",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint automation/",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "validate:data": "node --import tsx automation/validate-data.ts",
+    "quality": "npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run validate:data && npm run build",
     "ops": "node --import tsx automation/cli.ts",
     "ops:status": "npm run ops -- status",
     "ops:validate": "npm run ops -- validate",
     "ops:report": "npm run ops -- report"
   },
+  "dependencies": {
+    "zod": "^3.24.4"
+  },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
-    "@types/node": "^26.4.0",
+    "@types/node": "^24.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.69.0",
+    "@typescript-eslint/parser": "^8.69.0",
+    "@vitest/coverage-v8": "^3.2.1",
+    "eslint": "^9.27.0",
+    "prettier": "^3.5.3",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
     "vitest": "^3.2.1"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   }
 }

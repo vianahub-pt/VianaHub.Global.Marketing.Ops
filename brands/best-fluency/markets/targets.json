@@ -10,55 +10,55 @@
     {
       "country": "BR",
       "locale": "pt-BR",
-      "enabled": true,
+      "enabled": false,
       "priority": "secondary"
     },
     {
       "country": "US",
       "locale": "en-US",
-      "enabled": true,
+      "enabled": false,
       "priority": "secondary"
     },
     {
       "country": "ES",
       "locale": "es-ES",
-      "enabled": true,
+      "enabled": false,
       "priority": "secondary"
     },
     {
       "country": "FR",
       "locale": "fr-FR",
-      "enabled": true,
+      "enabled": false,
       "priority": "secondary"
     },
     {
       "country": "DE",
       "locale": "de-DE",
-      "enabled": true,
+      "enabled": false,
       "priority": "secondary"
     },
     {
       "country": "IT",
       "locale": "it-IT",
-      "enabled": true,
+      "enabled": false,
       "priority": "secondary"
     },
     {
       "country": "JP",
       "locale": "ja-JP",
-      "enabled": true,
+      "enabled": false,
       "priority": "secondary"
     },
     {
       "country": "RU",
       "locale": "ru-RU",
-      "enabled": true,
+      "enabled": false,
       "priority": "secondary"
     },
     {
       "country": "CN",
       "locale": "zh-CN",
-      "enabled": true,
+      "enabled": false,
       "priority": "secondary"
     }
   ]

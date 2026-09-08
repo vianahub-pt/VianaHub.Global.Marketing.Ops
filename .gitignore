@@ -21,6 +21,9 @@ secrets/
 # Build output
 dist/
 
+# Coverage
+coverage/
+
 # Logs
 *.log
 npm-debug.log*
@@ -32,3 +35,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Temporary files
+*.tmp
+*.tmp.*

@@ -1,9 +1,7 @@
-import type {
-  OperationalSummary,
-  PlatformStatus,
-  BrandProfile,
-  ListingPriority,
-} from "./types.js";
+import { writeFileSync, mkdirSync, renameSync, unlinkSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+import type { OperationalSummary, PlatformStatus, BrandProfile, ListingPriority } from "./types.js";
+import { safeResolve } from "./path-security.js";
 
 const PRIORITY_ORDER: Record<ListingPriority, number> = {
   critical: 0,
@@ -12,16 +10,28 @@ const PRIORITY_ORDER: Record<ListingPriority, number> = {
   low: 3,
 };
 
+function escapeMarkdownCell(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\|/g, "\\|")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/`/g, "\\`")
+    .replace(/\n/g, " ");
+}
+
 export function generateReport(
   summary: OperationalSummary,
   statuses: PlatformStatus[],
   brandProfile: BrandProfile,
+  generatedAt?: string,
 ): string {
   const lines: string[] = [];
+  const timestamp = generatedAt ?? new Date().toISOString();
 
   lines.push(`# ${summary.brand} — Marketing Ops — ${summary.market}`);
   lines.push("");
-  lines.push(`Generated at: ${new Date().toISOString()}`);
+  lines.push(`Generated at: ${timestamp}`);
   lines.push("");
   lines.push("## Summary");
   lines.push("");
@@ -40,24 +50,30 @@ export function generateReport(
   // Operational Queue
   lines.push("## Operational Queue");
   lines.push("");
-  lines.push("| Priority | Platform | Listing Name | Category | Status | Listing URL | Next Action |");
-  lines.push("|----------|----------|--------------|----------|--------|-------------|-------------|");
+  lines.push(
+    "| Priority | Platform | Listing Name | Category | Status | Listing URL | Next Action |",
+  );
+  lines.push(
+    "|----------|----------|--------------|----------|--------|-------------|-------------|",
+  );
 
   const sorted = [...statuses].sort((a, b) => {
     const aP = a.listing ? PRIORITY_ORDER[a.listing.priority] : 4;
     const bP = b.listing ? PRIORITY_ORDER[b.listing.priority] : 4;
-    if (aP !== bP) return aP - bP;
+    if (aP !== bP) {
+      return aP - bP;
+    }
     return a.platform.name.localeCompare(b.platform.name);
   });
 
   for (const s of sorted) {
     const priority = s.listing?.priority ?? "low";
-    const listingName = s.listing?.listing_name ?? "—";
+    const listingName = escapeMarkdownCell(s.listing?.listing_name ?? "—");
     const category = s.platform.category ?? "other";
     const url = s.listing?.listing_url ?? "—";
     const nextAction = getNextAction(s);
     lines.push(
-      `| ${priority} | ${s.platform.name} | ${listingName} | ${category} | ${s.status} | ${url} | ${nextAction} |`,
+      `| ${priority} | ${escapeMarkdownCell(s.platform.name)} | ${listingName} | ${category} | ${s.status} | ${escapeMarkdownCell(url)} | ${escapeMarkdownCell(nextAction)} |`,
     );
   }
 
@@ -70,13 +86,45 @@ export function generateReport(
     lines.push("No data quality issues detected.");
   } else {
     for (const alert of summary.dataQualityAlerts) {
-      lines.push(`- ⚠ ${alert}`);
+      lines.push(`- ⚠ ${escapeMarkdownCell(alert)}`);
     }
   }
 
   lines.push("");
 
   return lines.join("\n");
+}
+
+export function writeReportAtomic(
+  content: string,
+  reportsDir: string,
+  brand: string,
+  market: string,
+): string {
+  // Validate path stays inside reports directory
+  const targetDir = safeResolve(reportsDir, brand, market);
+  const targetPath = resolve(targetDir, "README.md");
+
+  mkdirSync(targetDir, { recursive: true });
+
+  const tmpPath = targetPath + ".tmp";
+
+  try {
+    writeFileSync(tmpPath, content, "utf-8");
+    renameSync(tmpPath, targetPath);
+  } catch (err) {
+    // Cleanup temp file on error
+    if (existsSync(tmpPath)) {
+      try {
+        unlinkSync(tmpPath);
+      } catch {
+        // ignore cleanup error
+      }
+    }
+    throw err;
+  }
+
+  return targetPath;
 }
 
 function getNextAction(status: PlatformStatus): string {
