@@ -40,5 +40,5 @@
 *.txt text eol=lf
 *.csv text eol=lf
 
-# Lock files - keep as-is (auto-generated)
-package-lock.json -diff
+# Lock files remain normalized and reviewable
+package-lock.json text eol=lf
