@@ -15,7 +15,9 @@ afterEach(() => {
   rmSync(tempDir, { recursive: true, force: true });
 });
 
-function createPlatform(overrides: Partial<PlatformDefinition> & { id: string }): PlatformDefinition {
+function createPlatform(
+  overrides: Partial<PlatformDefinition> & { id: string },
+): PlatformDefinition {
   return {
     name: overrides.id,
     country: "PT",
@@ -46,10 +48,7 @@ describe("loadPlatforms", () => {
       JSON.stringify([createPlatform({ id: "global-platform", name: "Global Platform" })]),
     );
 
-    writeFileSync(
-      join(root, "data", "platforms", "PT", "platforms.json"),
-      JSON.stringify([]),
-    );
+    writeFileSync(join(root, "data", "platforms", "PT", "platforms.json"), JSON.stringify([]));
 
     const platforms = loadPlatforms("PT", "operational", root);
     expect(platforms).toHaveLength(1);
@@ -62,10 +61,7 @@ describe("loadPlatforms", () => {
     mkdirSync(join(root, "data", "platforms", "global"), { recursive: true });
     mkdirSync(join(root, "data", "platforms", "PT"), { recursive: true });
 
-    writeFileSync(
-      join(root, "data", "platforms", "global", "platforms.json"),
-      JSON.stringify([]),
-    );
+    writeFileSync(join(root, "data", "platforms", "global", "platforms.json"), JSON.stringify([]));
 
     writeFileSync(
       join(root, "data", "platforms", "PT", "platforms.json"),
@@ -135,10 +131,7 @@ describe("loadPlatforms", () => {
       ]),
     );
 
-    writeFileSync(
-      join(root, "data", "platforms", "PT", "platforms.json"),
-      JSON.stringify([]),
-    );
+    writeFileSync(join(root, "data", "platforms", "PT", "platforms.json"), JSON.stringify([]));
 
     const platforms = loadPlatforms("PT", "operational", root);
     expect(platforms).toHaveLength(1);
@@ -158,10 +151,7 @@ describe("loadPlatforms", () => {
       ]),
     );
 
-    writeFileSync(
-      join(root, "data", "platforms", "PT", "platforms.json"),
-      JSON.stringify([]),
-    );
+    writeFileSync(join(root, "data", "platforms", "PT", "platforms.json"), JSON.stringify([]));
 
     const platforms = loadPlatforms("PT", "diagnostic", root);
     expect(platforms).toHaveLength(2);
@@ -172,10 +162,7 @@ describe("loadPlatforms", () => {
     const root = join(tempDir, "nonexistent");
     mkdirSync(join(root, "data", "platforms", "global"), { recursive: true });
 
-    writeFileSync(
-      join(root, "data", "platforms", "global", "platforms.json"),
-      JSON.stringify([]),
-    );
+    writeFileSync(join(root, "data", "platforms", "global", "platforms.json"), JSON.stringify([]));
 
     const platforms = loadPlatforms("XX", "operational", root);
     expect(platforms).toEqual([]);
@@ -186,15 +173,9 @@ describe("loadPlatforms", () => {
     mkdirSync(join(root, "data", "platforms", "global"), { recursive: true });
     mkdirSync(join(root, "data", "platforms", "PT"), { recursive: true });
 
-    writeFileSync(
-      join(root, "data", "platforms", "global", "platforms.json"),
-      "not valid json",
-    );
+    writeFileSync(join(root, "data", "platforms", "global", "platforms.json"), "not valid json");
 
-    writeFileSync(
-      join(root, "data", "platforms", "PT", "platforms.json"),
-      JSON.stringify([]),
-    );
+    writeFileSync(join(root, "data", "platforms", "PT", "platforms.json"), JSON.stringify([]));
 
     expect(() => loadPlatforms("PT", "operational", root)).toThrow("Invalid JSON in platform file");
   });
@@ -209,12 +190,11 @@ describe("loadPlatforms", () => {
       JSON.stringify({ not: "array" }),
     );
 
-    writeFileSync(
-      join(root, "data", "platforms", "PT", "platforms.json"),
-      JSON.stringify([]),
-    );
+    writeFileSync(join(root, "data", "platforms", "PT", "platforms.json"), JSON.stringify([]));
 
-    expect(() => loadPlatforms("PT", "operational", root)).toThrow("Platform file must contain an array");
+    expect(() => loadPlatforms("PT", "operational", root)).toThrow(
+      "Platform file must contain an array",
+    );
   });
 
   it("preserves boolean | null fields", () => {
@@ -235,10 +215,7 @@ describe("loadPlatforms", () => {
       ]),
     );
 
-    writeFileSync(
-      join(root, "data", "platforms", "PT", "platforms.json"),
-      JSON.stringify([]),
-    );
+    writeFileSync(join(root, "data", "platforms", "PT", "platforms.json"), JSON.stringify([]));
 
     const platforms = loadPlatforms("PT", "operational", root);
     expect(platforms[0].requiresLogin).toBe(true);
@@ -270,10 +247,7 @@ describe("loadPlatforms", () => {
       ]),
     );
 
-    writeFileSync(
-      join(root, "data", "platforms", "PT", "platforms.json"),
-      JSON.stringify([]),
-    );
+    writeFileSync(join(root, "data", "platforms", "PT", "platforms.json"), JSON.stringify([]));
 
     const platforms = loadPlatforms("PT", "operational", root);
     expect(platforms.find((p) => p.id === "free-platform")?.pricingModel).toBe("free");
@@ -297,10 +271,7 @@ describe("loadPlatforms", () => {
       ]),
     );
 
-    writeFileSync(
-      join(root, "data", "platforms", "PT", "platforms.json"),
-      JSON.stringify([]),
-    );
+    writeFileSync(join(root, "data", "platforms", "PT", "platforms.json"), JSON.stringify([]));
 
     const platforms = loadPlatforms("PT", "operational", root);
     expect(platforms[0].officialSourceUrl).toBe("https://example.com/info");

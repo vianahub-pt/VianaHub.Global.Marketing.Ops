@@ -1,12 +1,13 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import type { BrandProfile } from "./types.js";
-
-const REQUIRED_FIELDS = ["id", "name", "website"] as const;
+import { validateBrandId, safeResolve } from "./path-security.js";
+import { BrandProfileSchema } from "./schemas.js";
 
 export function loadBrand(brandId: string, rootDir?: string): BrandProfile {
-  const root = rootDir ?? resolve(process.cwd());
-  const filePath = resolve(root, "brands", brandId, "business-profile", "master-data.json");
+  validateBrandId(brandId);
+
+  const root = rootDir ?? process.cwd();
+  const filePath = safeResolve(root, "brands", brandId, "business-profile", "master-data.json");
 
   let raw: string;
   try {
@@ -15,36 +16,20 @@ export function loadBrand(brandId: string, rootDir?: string): BrandProfile {
     throw new Error(`Brand profile not found: ${filePath}`);
   }
 
-  let data: Record<string, unknown>;
+  let data: unknown;
   try {
     data = JSON.parse(raw);
   } catch {
     throw new Error(`Invalid JSON in brand profile: ${filePath}`);
   }
 
-  for (const field of REQUIRED_FIELDS) {
-    const value = data[field];
-    if (value === undefined || value === null || value === "") {
-      throw new Error(`Missing required field "${field}" in ${filePath}`);
-    }
+  const validated = BrandProfileSchema.safeParse(data);
+  if (!validated.success) {
+    const issues = validated.error.issues
+      .map((i) => `${i.path.join(".")}: ${i.message}`)
+      .join("; ");
+    throw new Error(`Invalid brand profile: ${issues}`);
   }
 
-  const profile: BrandProfile = {
-    id: data.id as string,
-    name: data.name as string,
-    website: data.website as string,
-  };
-
-  if (data.legalName) profile.legalName = data.legalName as string;
-  if (data.email) profile.email = data.email as string;
-  if (data.phone) profile.phone = data.phone as string;
-  if (data.address) profile.address = data.address as BrandProfile["address"];
-  if (data.social) profile.social = data.social as BrandProfile["social"];
-  if (data.categories) profile.categories = data.categories as string[];
-  if (data.services) profile.services = data.services as string[];
-  if (data.languagesTaught) profile.languagesTaught = data.languagesTaught as string[];
-  if (data.supportedLocales) profile.supportedLocales = data.supportedLocales as string[];
-  if (data.businessHours) profile.businessHours = data.businessHours as BrandProfile["businessHours"];
-
-  return profile;
+  return validated.data as BrandProfile;
 }

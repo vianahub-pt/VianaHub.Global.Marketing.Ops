@@ -16,4 +16,8 @@ export default defineConfig({
       use: { browserName: "chromium" },
     },
   ],
+  // Credentials must be provided via environment variables
+  // GOOGLE_USERNAME, GOOGLE_PASSWORD for Google Business Profile
+  // FACEBOOK_EMAIL, FACEBOOK_PASSWORD for Facebook Business
+  // etc.
 });
