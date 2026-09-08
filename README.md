@@ -197,7 +197,7 @@ VianaHub.Global.Marketing.Ops/
 
 ## Status Atual
 
-**Versão:** 0.3.1 (Complete Best Fluency Business Profile)
+**Versão:** 0.4.0 (Production Foundation)
 
 - [x] Estrutura de pastas criada
 - [x] Brands: Best Fluency e GERIT com dados iniciais

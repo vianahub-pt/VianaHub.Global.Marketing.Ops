@@ -36,11 +36,13 @@ This prevents corrupted reports from partial writes.
 ### CI/CD Security
 
 - GitHub Actions use SHA-pinned versions with version comments
-- CodeQL analysis runs on every PR to main/develop
-- Dependabot groups dependencies for cleaner updates
+- `Quality Checks` runs on pushes and pull requests to `main` and `develop`
+- CodeQL analysis runs on pushes and pull requests to `main`, plus a weekly schedule
+- Secret scanning and push protection are enabled
+- Dependabot is configured for both npm and GitHub Actions dependencies
 
 ### Sensitive Data
 
 - No API keys or secrets are stored in the repository
-- Google Business Profile access uses environment variables
-- All credentials must be provided at runtime via env vars
+- Future external platform integrations must receive credentials through environment variables or an approved secret manager
+- No Google Business Profile adapter is implemented yet

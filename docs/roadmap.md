@@ -29,37 +29,71 @@
 - [x] SECURITY.md
 - [x] CONTRIBUTING.md
 
-## Sprint 1: External Platform Adapters
+## Sprint 1: Execution Domain & Idempotency
 
 ### Goals
 
-- Implement adapters for external platforms
-- Add semi-automatic registration workflows
-- Expand platform coverage
-
-### Planned Platforms
-
-- Google Business Profile (already in progress)
-- Facebook Business
-- Instagram Business
-- LinkedIn Company Pages
-- Trustpilot (reviews)
+- Create the execution domain before accessing external platforms
+- Ensure idempotency
+- Allow safe recovery
+- Prevent incompatible concurrent executions
+- Preserve operational history without storing secrets
 
 ### Deliverables
 
-- [ ] Platform adapter interface
-- [ ] Google Business Profile adapter
-- [ ] Facebook Business adapter
-- [ ] Registration workflow
-- [ ] Status synchronization
+- [ ] `RunId` and `RunRecord`
+- [ ] States: `queued`, `running`, `waiting_manual`, `succeeded`, `failed`, `cancelled`
+- [ ] State machine with validated transitions
+- [ ] Deterministic idempotency key
+- [ ] Payload fingerprint without sensitive data
+- [ ] `RunStore` interface
+- [ ] Local file-based implementation separated from domain rules
+- [ ] Atomic checkpoint persistence
+- [ ] Concurrency locking
+- [ ] Attempt and retry model
+- [ ] Error and log redaction
+- [ ] `dry-run` mode
+- [ ] Unit, integration and failure recovery tests
 
-## Sprint 2: Analytics & Reporting
+### Out of Scope
+
+- Real adapters
+- External API calls
+- Browser automation
+- Scheduler
+- Dashboard
+- Database
+- Multi-market activation
+
+## Sprint 2: Adapter Framework & First Controlled Pilot
 
 ### Goals
 
-- Enhanced reporting with analytics
+- Integrate the adapter contract with the run domain
+- Create a fake/no-op adapter for testing
+- Implement a single pilot adapter
+- Choose Google Business Profile only if official access and credentials are available
+- Support manual/semi-automatic flows
+- Never bypass CAPTCHA, MFA or terms of service
+
+### Deliverables
+
+- [x] Initial `PlatformAdapter` interface (baseline)
+- [ ] Adapter contract integrated with runs and checkpoints
+- [ ] Fake adapter for deterministic end-to-end tests
+- [ ] First controlled external adapter
+- [ ] Manual-action handoff
+- [ ] Status synchronization
+- [ ] Adapter-specific security and compliance review
+
+## Sprint 3: Analytics & Reporting
+
+### Goals
+
+- Historical data storage
 - Performance metrics
 - Trend analysis
+- Operational alerts
 
 ### Deliverables
 
@@ -68,13 +102,13 @@
 - [ ] Performance dashboards
 - [ ] Alerting system
 
-## Sprint 3: Multi-Market Expansion
+## Sprint 4: Multi-Market Expansion
 
 ### Goals
 
-- Enable additional markets
-- Add platform catalogs for new markets
-- Localize CLI and reports
+- Controlled activation of new markets
+- Market-specific validations
+- Report localization
 
 ### Planned Markets
 
@@ -82,13 +116,15 @@
 - US (United States) - Secondary priority
 - ES (Spain) - Secondary priority
 
-## Sprint 4: Automation
+## Sprint 5: Scheduling & Batch Automation
 
 ### Goals
 
-- Advanced automation workflows
-- Scheduled tasks
-- Batch operations
+- Scheduling
+- Batch processing
+- Operational retries
+- Recovery
+- Extended auditing
 
 ### Deliverables
 
@@ -104,6 +140,9 @@
 3. **GERIT Frozen:** Never modify GERIT brand data
 4. **Minimal Footprint:** No API, no database, no UI
 5. **GitOps Workflow:** All changes via Git commits
+6. **Idempotency First:** External operations must be safe to retry
+7. **Human in the Loop:** CAPTCHA, authentication and verification may require manual action
+8. **No Secrets in Runs:** Runtime records must contain only redacted operational metadata
 
 ## Technical Stack
 
