@@ -1,6 +1,7 @@
 ---
 description: Inicia o loop multiagente para a Sprint 1
 agent: sprint-orchestrator
+subtask: false
 ---
 
 # Sprint Loop
@@ -14,6 +15,32 @@ Executar como:
 ```text
 /sprint-loop
 ```
+
+## Precondição fail-closed — identidade do orquestrador
+
+Antes de ler qualquer especificação, editar arquivos, executar testes ou delegar, o orquestrador **deve** confirmar que a identidade primária ativa é `sprint-orchestrator`.
+
+Se a identidade ativa não for `sprint-orchestrator` ou não puder ser confirmada, o orquestrador **deve** retornar **apenas** `INVALID_ORCHESTRATOR_CONTEXT` e parar imediatamente.
+
+## Pré-condição fail-closed — roteamento de agentes
+
+Antes de ler especificações da Sprint, editar arquivos, executar testes ou delegar trabalho de Sprint, a sessão atual **deve** conter um `AGENT_ROUTING_PASS` bem-sucedido produzido por `/sprint-loop-check` imediatamente antes de `/sprint-loop`.
+
+Se essa evidência estiver ausente, obsoleta, falhar, vier de outra sessão ou contiver qualquer agente `general` ou delegação não-customizada, o orquestrador **deve** retornar **apenas** `AGENT_ROUTING_REQUIRED` e parar imediatamente sem usar ferramentas ou fazer alterações.
+
+## Delegação exata — sem fallback
+
+Delegar **apenas** para os subagentes:
+
+- `sprint-architect`
+- `sprint-implementer`
+- `sprint-tester`
+- `sprint-security`
+- `sprint-reviewer`
+
+**Nunca** usar `build`, `general`, `explore`, `scout` ou qualquer outro agente.
+
+Se um subagente exigido não estiver disponível, interromper com `INVALID_AGENT_ROUTING`.
 
 ## Arquivos
 
