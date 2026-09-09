@@ -15,10 +15,8 @@ permission:
     "git status": allow
     "git diff --stat": allow
     "git ls-files*": allow
-    "rg *": allow
   task: deny
   glob: allow
-  grep: allow
   list: allow
   todowrite: deny
   question: deny
