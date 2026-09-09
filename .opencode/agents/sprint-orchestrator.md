@@ -14,7 +14,6 @@ permission:
     "git log --oneline*": allow
     "git rev-parse*": allow
     "git ls-files*": allow
-    "rg *": allow
   task:
     "*": deny
     "sprint-architect": allow
@@ -23,7 +22,6 @@ permission:
     "sprint-security": allow
     "sprint-reviewer": allow
   glob: allow
-  grep: allow
   list: allow
   todowrite: allow
   question: allow

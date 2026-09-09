@@ -21,7 +21,6 @@ permission:
     "npm test -- automation/application/*": allow
   task: deny
   glob: allow
-  grep: allow
   list: allow
   todowrite: deny
   question: deny

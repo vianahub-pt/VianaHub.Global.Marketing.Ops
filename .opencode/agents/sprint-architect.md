@@ -13,10 +13,8 @@ permission:
     "git show*": allow
     "git rev-parse*": allow
     "git ls-files*": allow
-    "rg *": allow
   task: deny
   glob: allow
-  grep: allow
   list: allow
   todowrite: deny
   question: deny

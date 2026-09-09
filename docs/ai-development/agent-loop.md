@@ -89,8 +89,10 @@ Quando o limite é atingido, o agente recebe um prompt especial para resumir seu
 ## Uso
 
 ```bash
-/sprint-loop sprint-1
+/sprint-loop
 ```
+
+O comando está fixado na Sprint 1 e não recebe argumentos.
 
 ## Segurança
 
@@ -102,6 +104,8 @@ Quando o limite é atingido, o agente recebe um prompt especial para resumir seu
 - Cada agente possui `steps` explícito — subagentes não herdam limites do orquestrador
 - Limite de 5 ciclos pertence ao protocolo do orquestrador, não aos agentes individuais
 - Qualquer limite atingido resulta em `MAX_ITERATIONS_REACHED` ou `BLOCKED_NEEDS_HUMAN`
+- `grep` e comandos Bash de pesquisa textual (`rg`, `cat`, `type`, `Get-Content`, `findstr`) estão bloqueados globalmente para impedir bypass da política de leitura
+- O loop não cria commit, push, PR ou merge
 
 ## Política de Proteção de Arquivos Sensíveis
 
@@ -110,6 +114,6 @@ A política global de leitura protege arquivos sensíveis:
 - `.env` e `.env.*` — negado
 - `*.pem`, `*.key`, `*.p12`, `*.pfx` — negado
 - `id_rsa`, `id_ed25519` — negado
-- `*.env.example` — permitido (útil como referência)
+- `*.env.example` — permitido (pode ser lido como referência)
 
 A política usa regra de último match: `.env.*` é negado, mas `*.env.example` é permitido.
