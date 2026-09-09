@@ -2,201 +2,27 @@
   "$schema": "https://opencode.ai/config.json",
   "share": "disabled",
   "subagent_depth": 1,
-  "instructions": ["AGENTS.md"],
-  "agent": {
-    "sprint-orchestrator": {
-      "description": "Orquestra o loop multiagente da Sprint. Coordena arquiteto, implementador, tester, segurança e reviewer. Não implementa código.",
-      "mode": "primary",
-      "steps": 70,
-      "temperature": 0.1,
-      "permission": {
-        "edit": {
-          "*": "deny",
-          "docs/sprints/sprint-1/loop-state.md": "allow"
-        },
-        "bash": {
-          "*": "deny",
-          "git status": "allow",
-          "git diff --stat": "allow",
-          "git log --oneline*": "allow",
-          "git rev-parse*": "allow",
-          "git ls-files*": "allow",
-          "rg *": "allow"
-        },
-        "task": {
-          "*": "deny",
-          "sprint-architect": "allow",
-          "sprint-implementer": "allow",
-          "sprint-tester": "allow",
-          "sprint-security": "allow",
-          "sprint-reviewer": "allow"
-        },
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "list": "allow",
-        "todowrite": "allow",
-        "question": "allow",
-        "webfetch": "deny",
-        "websearch": "deny",
-        "skill": "deny",
-        "external_directory": "deny"
-      }
-    },
-    "sprint-architect": {
-      "description": "Analisa arquitetura, dependências e critérios de aceitação. Somente leitura. Produz plano verificável.",
-      "mode": "subagent",
-      "steps": 20,
-      "temperature": 0.1,
-      "permission": {
-        "edit": "deny",
-        "bash": {
-          "*": "deny",
-          "git status": "allow",
-          "git diff*": "allow",
-          "git log*": "allow",
-          "git show*": "allow",
-          "git rev-parse*": "allow",
-          "git ls-files*": "allow",
-          "rg *": "allow"
-        },
-        "task": "deny",
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "list": "allow",
-        "todowrite": "deny",
-        "question": "deny",
-        "webfetch": "deny",
-        "websearch": "deny",
-        "skill": "deny",
-        "external_directory": "deny"
-      }
-    },
-    "sprint-implementer": {
-      "description": "Único agente autorizado a editar código. Implementa um incremento por ciclo. Não pode alterar guardrails agentic.",
-      "mode": "subagent",
-      "steps": 40,
-      "temperature": 0.2,
-      "permission": {
-        "edit": {
-          "*": "deny",
-          "automation/domain/**": "allow",
-          "automation/application/**": "allow",
-          "docs/architecture/**": "allow",
-          "docs/roadmap.md": "allow"
-        },
-        "bash": {
-          "*": "deny",
-          "git status": "allow",
-          "git diff --stat": "allow",
-          "git ls-files*": "allow",
-          "rg *": "allow"
-        },
-        "task": "deny",
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "list": "allow",
-        "todowrite": "deny",
-        "question": "deny",
-        "webfetch": "deny",
-        "websearch": "deny",
-        "skill": "deny",
-        "external_directory": "deny"
-      }
-    },
-    "sprint-tester": {
-      "description": "Executa testes focados e quality gates. Apresenta comandos, exit codes e falhas. Nunca corrige testes.",
-      "mode": "subagent",
-      "steps": 30,
-      "temperature": 0.1,
-      "permission": {
-        "edit": "deny",
-        "bash": {
-          "*": "deny",
-          "npm ci": "allow",
-          "npm run format:check": "allow",
-          "npm run lint": "allow",
-          "npm run typecheck": "allow",
-          "npm run test:coverage": "allow",
-          "npm run validate:data": "allow",
-          "npm run build": "allow",
-          "npm audit --audit-level=high": "allow",
-          "git diff --check": "allow",
-          "git status": "allow"
-        },
-        "task": "deny",
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "list": "allow",
-        "todowrite": "deny",
-        "question": "deny",
-        "webfetch": "deny",
-        "websearch": "deny",
-        "skill": "deny",
-        "external_directory": "deny"
-      }
-    },
-    "sprint-security": {
-      "description": "Analisa secrets, path traversal, injection, redaction, serialização, dependências e exposição de dados. Classifica findings.",
-      "mode": "subagent",
-      "steps": 25,
-      "temperature": 0.1,
-      "permission": {
-        "edit": "deny",
-        "bash": {
-          "*": "deny",
-          "git status": "allow",
-          "git diff*": "allow",
-          "git log*": "allow",
-          "git show*": "allow",
-          "git ls-files*": "allow",
-          "rg *": "allow",
-          "npm audit --audit-level=high": "allow"
-        },
-        "task": "deny",
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "list": "allow",
-        "todowrite": "deny",
-        "question": "deny",
-        "webfetch": "deny",
-        "websearch": "deny",
-        "skill": "deny",
-        "external_directory": "deny"
-      }
-    },
-    "sprint-reviewer": {
-      "description": "Verifica arquitetura, manutenção, duplicação, escopo, cobertura e compatibilidade. Somente leitura.",
-      "mode": "subagent",
-      "steps": 25,
-      "temperature": 0.1,
-      "permission": {
-        "edit": "deny",
-        "bash": {
-          "*": "deny",
-          "git status": "allow",
-          "git diff*": "allow",
-          "git log*": "allow",
-          "git show*": "allow",
-          "git ls-files*": "allow",
-          "rg *": "allow"
-        },
-        "task": "deny",
-        "read": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "list": "allow",
-        "todowrite": "deny",
-        "question": "deny",
-        "webfetch": "deny",
-        "websearch": "deny",
-        "skill": "deny",
-        "external_directory": "deny"
-      }
+  "permission": {
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      ".env": "deny",
+      ".env.*": "deny",
+      "**/.env": "deny",
+      "**/.env.*": "deny",
+      "*.env.example": "allow",
+      "**/*.env.example": "allow",
+      "*.pem": "deny",
+      "**/*.pem": "deny",
+      "*.key": "deny",
+      "**/*.key": "deny",
+      "*.p12": "deny",
+      "**/*.p12": "deny",
+      "*.pfx": "deny",
+      "**/*.pfx": "deny",
+      "**/id_rsa": "deny",
+      "**/id_ed25519": "deny"
     }
   }
 }

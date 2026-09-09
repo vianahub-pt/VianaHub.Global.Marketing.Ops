@@ -6,53 +6,76 @@ Criar o domínio de execuções antes de acessar plataformas externas, garantind
 
 ## Critérios de Aceitação
 
-### RunId
+### Identidade e Idempotência
 
-- [ ] Tipo `RunId` definido como string UUID v4
-- [ ] Função `createRunId()` gera IDs determinísticos a partir de payload
-- [ ] IDs são únicos por combinação de (brand, market, platform, operation)
-- [ ] IDs são imutáveis após criação
+- [ ] Tipo `RunId` definido como string UUID v4 aleatório
+- [ ] Função `createRunId()` gera IDs aleatórios, não determinísticos
+- [ ] `RunId` é único para cada execução, mesmo para a mesma combinação de brand/market/platform/operation
+- [ ] Tipo `IdempotencyKey` definido como string
+- [ ] Função `computeIdempotencyKey()` é pura e determinística
+- [ ] `IdempotencyKey` é derivado da identidade lógica da operação e do payload canónico
+- [ ] Tipo `PayloadFingerprint` definido como string hex SHA-256
+- [ ] Função `fingerprintPayload()` serializa payload de forma canónica e retorna hash
+- [ ] Payload não inclui dados sensíveis (tokens, senhas, cookies) antes do hash
+- [ ] Várias execuções são permitidas para a mesma combinação brand/market/platform/operation
+- [ ] Somente repetição idempotente da mesma solicitação deve reutilizar a mesma `IdempotencyKey`
 
 ### RunRecord
 
-- [ ] Interface `RunRecord` com campos: `id`, `brand`, `market`, `platform`, `operation`, `status`, `attempt`, `maxAttempts`, `createdAt`, `updatedAt`, `completedAt`, `error`, `checkpoint`
+- [ ] Interface `RunRecord` com campos:
+  - `schemaVersion: number`
+  - `runId: RunId`
+  - `brandId: string`
+  - `market: string`
+  - `platform: string`
+  - `operation: string`
+  - `state: RunState`
+  - `attempt: number`
+  - `maxAttempts: number`
+  - `idempotencyKey: IdempotencyKey`
+  - `payloadFingerprint: PayloadFingerprint`
+  - `createdAt: Date`
+  - `updatedAt: Date`
+  - `startedAt?: Date`
+  - `finishedAt?: Date`
+  - `error?: RunError`
+  - `metadata?: Record<string, unknown>`
 - [ ] Validação Zod para `RunRecord`
-- [ ] Campos `error` e `checkpoint` são opcionais
-- [ ] `attempt` inicia em 1
+- [ ] Não misturar `id` com `runId`, `brand` com `brandId`, ou `status` com `state`
 
 ### Estados de Execução
 
 - [ ] Estados definidos: `queued`, `running`, `waiting_manual`, `succeeded`, `failed`, `cancelled`
 - [ ] Estado inicial: `queued`
-- [ ] Transições válidas documentadas
 
 ### Máquina de Estados
 
-- [ ] Transições validadas por função `transitionRunStatus()`
+- [ ] Transições validadas por função `transitionRunState()`
 - [ ] Transições inválidas lançam erro
-- [ ] `waiting_manual` só é atingido a partir de `running`
-- [ ] `succeeded` e `failed` são estados terminais
-- [ ] `cancelled` só é atingido a partir de `queued` ou `running`
+- [ ] Matriz de transições:
 
-### Idempotência Determinística
+| Origem           | Destinos permitidos                                                    |
+| ---------------- | ---------------------------------------------------------------------- |
+| `queued`         | `running`, `cancelled`                                                 |
+| `running`        | `waiting_manual`, `succeeded`, `failed`, `cancelled`                   |
+| `waiting_manual` | `running`, `failed`, `cancelled`                                       |
+| `failed`         | `queued`, exclusivamente quando retryable e com tentativas disponíveis |
+| `succeeded`      | nenhum                                                                 |
+| `cancelled`      | nenhum                                                                 |
 
-- [ ] Chave de idempotência derivada de (brand, market, platform, operation, payload_hash)
-- [ ] `payload_hash` é SHA-256 do payload serializado
-- [ ] Payload não inclui dados sensíveis (tokens, senhas, cookies)
-- [ ] Função `computeIdempotencyKey()` é pura e determinística
+- [ ] `succeeded` e `cancelled` são estados terminais
+- [ ] `failed` é terminal quando não houver retry permitido
+- [ ] `waiting_manual` representa necessidade real de intervenção humana
+- [ ] `waiting_manual` não é atingido por esgotamento automático de tentativas
 
-### Payload Fingerprint
+### Tentativas
 
-- [ ] Função `fingerprintPayload()` serializa payload de forma canônica
-- [ ] Remove campos sensíveis antes de hash
-- [ ] Retorna SHA-256 como hex string
-
-### Tentativa e Retry
-
+- [ ] Uma execução em `queued` começa com `attempt = 0`
+- [ ] A transição `queued -> running` incrementa `attempt`
+- [ ] `attempt` nunca pode ultrapassar `maxAttempts`
 - [ ] `maxAttempts` configurável (padrão: 3)
-- [ ] `attempt` incrementado a cada retry
-- [ ] Backoff exponencial com jitter
-- [ ] `waiting_manual` atingido quando `attempt >= maxAttempts`
+- [ ] Retry somente pode ocorrer quando o erro for classificado como retryable
+- [ ] Retry somente pode ocorrer quando ainda houver tentativas disponíveis
 
 ### Redação de Erros e Logs
 
@@ -60,40 +83,21 @@ Criar o domínio de execuções antes de acessar plataformas externas, garantind
 - [ ] Função `redactLog()` sanitiza logs antes de persistir
 - [ ] Padrões de redação: tokens JWT, API keys, passwords, session IDs
 
-### RunStore Interface
+### RunRepository (Contrato de Domínio)
 
-- [ ] Interface `RunStore` definida
-- [ ] Métodos: `create()`, `get()`, `update()`, `list()`, `findByKey()`
+- [ ] Interface `RunRepository` definida
+- [ ] Métodos: `create()`, `getById()`, `update()`, `list()`, `findByIdempotencyKey()`
 - [ ] Independente de tecnologia de persistência
+- [ ] Concorrência otimista documentada como contrato, sem implementação de infraestrutura
 
-### Implementação Local
+### Checkpoints (Contrato)
 
-- [ ] `FileRunStore` implementa `RunStore`
-- [ ] Persistência atômica (temp + rename)
-- [ ] Separação de lógica de domínio e persistência
-- [ ] Diretório de runs configurável
-
-### Checkpoints
-
-- [ ] Checkpoints persistidos atomicamente
+- [ ] Modelo/contrato de checkpoint definido, se necessário
 - [ ] Checkpoint contém estado serializável
-- [ ] Resume a partir de checkpoint salvo
-
-### Locking
-
-- [ ] Lock por RunId para prevenir concorrência
-- [ ] Lock com timeout configurável
-- [ ] Release automático em estados terminais
-
-### Dry-Run
-
-- [ ] Modo `dry-run` executa sem efeitos colaterais
-- [ ] Validações rodam mesmo em dry-run
-- [ ] Logs indicam modo dry-run
 
 ### Testes
 
-- [ ] Testes unitários para cada componente
+- [ ] Testes unitários para cada componente de domínio
 - [ ] Testes de integração para fluxo completo
 - [ ] Testes de recuperação após falha
 - [ ] Cobertura mínima: 80% statements
@@ -102,9 +106,9 @@ Criar o domínio de execuções antes de acessar plataformas externas, garantind
 
 - [ ] Documentação arquitetural atualizada
 - [ ] Diagrama de estados
-- [ ] Guia de uso do RunStore
+- [ ] Guia de uso do RunRepository
 
-## Fora de Escopo
+## Fora de Escopo da Sprint 1
 
 - Implementação SQL Server
 - Conexão à VPS
@@ -115,6 +119,17 @@ Criar o domínio de execuções antes de acessar plataformas externas, garantind
 - Browser automation
 - Scheduler
 - Outros mercados
+- `FileRunStore`
+- Persistência JSON/CSV de runs
+- Gravação atômica em arquivos
+- Locking concreto
+- Implementação concreta de checkpoints
+- Backoff exponencial com jitter
+- Implementação concreta de `dry-run`, `resume` ou `check`
+
+CSV permanece apenas como importação, exportação, seed e compatibilidade; não será a base transacional de produção.
+
+A implementação do repositório SQL Server e a API pertencem à Sprint 2.
 
 ## Dependências
 
