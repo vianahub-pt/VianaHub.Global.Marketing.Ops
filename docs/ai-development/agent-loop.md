@@ -147,4 +147,4 @@ A política usa regra de último match: `.env.*` é negado, mas `*.env.example` 
 
 ### Evidence Preservation
 
-- `stash@{0}` contains evidence from the invalid execution and must not be applied, deleted, or reused as Sprint output without explicit human authorization
+- On the incident workstation, the evidence is the local stash identified by the message `invalid-agent-loop-execution-2026-09-09`; its mutable `stash@{n}` index must never be treated as a stable identifier; other clones may not contain this local stash; and it must not be applied, dropped, deleted, or reused as Sprint output without explicit human authorization
