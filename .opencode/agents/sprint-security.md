@@ -15,7 +15,6 @@ permission:
     "rg *": allow
     "npm audit --audit-level=high": allow
   task: deny
-  read: allow
   glob: allow
   grep: allow
   list: allow

@@ -9,10 +9,12 @@ Iniciar o loop multiagente para a Sprint: $ARGUMENTS
 
 ## Validação
 
-1. Verificar que `docs/sprints/$ARGUMENTS/spec.md` existe
-2. Ler a especificação
-3. Carregar estado atual de `docs/sprints/$ARGUMENTS/loop-state.md` (se existir)
-4. Iniciar protocolo do orquestrador
+1. Aceitar somente o argumento literal `sprint-1`
+2. Rejeitar qualquer outro argumento com mensagem clara: `Argumento inválido: $ARGUMENTS. Apenas 'sprint-1' é aceito.`
+3. Verificar que `docs/sprints/$ARGUMENTS/spec.md` existe
+4. Ler a especificação
+5. Carregar estado atual de `docs/sprints/$ARGUMENTS/loop-state.md` (se existir)
+6. Iniciar protocolo do orquestrador
 
 ## Protocolo
 
