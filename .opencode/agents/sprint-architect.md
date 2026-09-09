@@ -15,7 +15,6 @@ permission:
     "git ls-files*": allow
     "rg *": allow
   task: deny
-  read: allow
   glob: allow
   grep: allow
   list: allow

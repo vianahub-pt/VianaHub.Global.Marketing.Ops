@@ -59,4 +59,4 @@ git diff --check       # whitespace
 - **Reviewers always read-only:** Security and reviewer agents never edit
 - **No remote Git ops:** No commit, push, merge, or PR without human authorization
 - **Application status:** NO-GO for production
-- **Sprint 1 scope:** Run domain, checkpoints, idempotency — no adapters
+- **Sprint 1 scope:** Execution domain & idempotency — no adapters, no FileRunStore

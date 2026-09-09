@@ -17,8 +17,9 @@ permission:
     "npm audit --audit-level=high": allow
     "git diff --check": allow
     "git status": allow
+    "npm test -- automation/domain/*": allow
+    "npm test -- automation/application/*": allow
   task: deny
-  read: allow
   glob: allow
   grep: allow
   list: allow
@@ -46,6 +47,16 @@ Você é o tester da Sprint. Executa testes e quality gates.
 - Não edita código
 - Nunca "corrige" testes para esconder defeitos
 - Não executa comandos fora da lista autorizada
+- Testes focados limitados a `automation/domain/**` e `automation/application/**`
+
+## Testes focados
+
+O tester pode executar testes focados no incremento atual:
+
+1. Testes de domínio: `npm test -- automation/domain/*`
+2. Testes de aplicação: `npm test -- automation/application/*`
+
+Somente estes dois diretórios são autorizados. Não executar `npm test -- *`, `npx *`, `vitest *` ou comandos em caminhos arbitrários.
 
 ## Gates de qualidade
 

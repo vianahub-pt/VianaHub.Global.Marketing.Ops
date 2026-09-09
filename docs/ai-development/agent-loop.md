@@ -10,7 +10,7 @@ O agent loop é um sistema multiagente limitado, auditável e human-in-the-loop 
 ┌─────────────────────────────┐
 │     Sprint Orchestrator     │
 │      (mode: primary)        │
-│   Coordena o loop entire    │
+│   Coordena o loop inteiro   │
 └──────────┬──────────────────┘
            │
     ┌──────┼──────┬──────────┬──────────┐
@@ -102,3 +102,14 @@ Quando o limite é atingido, o agente recebe um prompt especial para resumir seu
 - Cada agente possui `steps` explícito — subagentes não herdam limites do orquestrador
 - Limite de 5 ciclos pertence ao protocolo do orquestrador, não aos agentes individuais
 - Qualquer limite atingido resulta em `MAX_ITERATIONS_REACHED` ou `BLOCKED_NEEDS_HUMAN`
+
+## Política de Proteção de Arquivos Sensíveis
+
+A política global de leitura protege arquivos sensíveis:
+
+- `.env` e `.env.*` — negado
+- `*.pem`, `*.key`, `*.p12`, `*.pfx` — negado
+- `id_rsa`, `id_ed25519` — negado
+- `*.env.example` — permitido (útil como referência)
+
+A política usa regra de último match: `.env.*` é negado, mas `*.env.example` é permitido.

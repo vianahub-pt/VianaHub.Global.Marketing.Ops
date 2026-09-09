@@ -22,7 +22,6 @@ permission:
     "sprint-tester": allow
     "sprint-security": allow
     "sprint-reviewer": allow
-  read: allow
   glob: allow
   grep: allow
   list: allow
