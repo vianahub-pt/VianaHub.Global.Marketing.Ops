@@ -12,11 +12,9 @@ permission:
     "git log*": allow
     "git show*": allow
     "git ls-files*": allow
-    "rg *": allow
     "npm audit --audit-level=high": allow
   task: deny
   glob: allow
-  grep: allow
   list: allow
   todowrite: deny
   question: deny

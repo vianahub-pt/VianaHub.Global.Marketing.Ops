@@ -3,6 +3,7 @@
   "share": "disabled",
   "subagent_depth": 1,
   "permission": {
+    "grep": "deny",
     "read": {
       "*": "allow",
       "*.env": "deny",
