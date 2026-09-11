@@ -1,24 +1,38 @@
 ---
-description: Verify Sprint 1 custom agent routing without modifying the repository
+description: Verifica o roteamento dos agentes personalizados da Sprint 1 sem modificar o repositório
 agent: sprint-orchestrator
 subtask: false
 ---
 
-# Sprint Loop Check
+# Verificação de Roteamento do Loop da Sprint
 
-This command is strictly read-only. It must not edit files, run shell commands or tests, update loop-state, access sensitive files, perform Git operations, or read Sprint specifications. Do not use ARGUMENTS or positional parameters. This routing check must never invoke /sprint-loop or start Sprint 1. The sprint-orchestrator may use only the task delegation mechanism required to invoke the five named custom subagents below. Each invoked subagent must not use any tools, read files, run commands, or modify state and must return only its exact AGENT_OK token.
+Este comando é estritamente somente leitura. Ele não deve editar arquivos, executar comandos de shell ou testes, atualizar `loop-state`, acessar arquivos sensíveis, realizar operações Git ou ler especificações da Sprint. Não use `ARGUMENTS` nem parâmetros posicionais. Esta verificação nunca deve invocar `/sprint-loop` nem iniciar a Sprint 1.
 
-## Identity Gate
+O `sprint-orchestrator` pode usar somente o mecanismo de delegação necessário para invocar os cinco subagentes personalizados relacionados abaixo. Cada subagente deve usar zero ferramentas, não ler arquivos, não executar comandos, não modificar estado e retornar somente seu token `AGENT_OK` exato.
 
-The active agent context supplied by the command frontmatter `agent: sprint-orchestrator` is the sole and only allowed identity evidence. Never read AGENTS.md, loop-state.md, Sprint specifications, repository files, configuration files, or environment information to confirm identity. If the active system agent is not clearly sprint-orchestrator, return only `INVALID_ORCHESTRATOR_CONTEXT` without using any tools and stop.
+## Política obrigatória de idioma no OpenCode Desktop
 
-## Tool Budget
+Toda comunicação de autoria do orquestrador dirigida ao usuário e visível durante esta verificação deve ser escrita diretamente em português do Brasil (`pt-BR`), independentemente do idioma do prompt. Isso inclui mensagens de progresso, explicações, títulos de delegação, resumos e resultado final. O raciocínio ou pensamento visível gerado pelo modelo pode permanecer no idioma nativo do modelo.
 
-During the entire routing check, the orchestrator may make exactly five tool calls total. Every call must use only the task delegation mechanism, once for each custom agent in the exact order listed below. The first tool call must delegate to `sprint-architect`. Explicitly prohibit read, glob, list, grep, bash, edit, write, web, question, todo, skill, Git, shell, tests, and every other tool or operation beyond the five permitted task delegations.
+Não traduza nomes de agentes, nomes de ferramentas, comandos, caminhos ou tokens de protocolo.
 
-## Agent Routing Verification
+## Verificação de identidade
 
-Using only the task delegation mechanism, delegate exactly once to each of the following agents in order.
+O contexto de agente ativo fornecido pelo frontmatter `agent: sprint-orchestrator` é a única evidência de identidade permitida. Nunca leia `AGENTS.md`, `loop-state.md`, especificações da Sprint, arquivos do repositório, arquivos de configuração ou informações do ambiente para confirmar a identidade.
+
+Se o agente ativo do sistema não for claramente `sprint-orchestrator`, retorne somente `INVALID_ORCHESTRATOR_CONTEXT`, sem usar ferramentas, e pare.
+
+## Limite de ferramentas
+
+Durante toda a verificação, o orquestrador deve fazer exatamente cinco chamadas de ferramenta no total. Todas devem usar exclusivamente o mecanismo de delegação, uma vez para cada agente personalizado, na ordem exata apresentada abaixo.
+
+A primeira chamada deve delegar para `sprint-architect`.
+
+São proibidos `read`, `glob`, `list`, `grep`, `bash`, `edit`, `write`, `web`, `question`, `todo`, `skill`, Git, shell, testes e qualquer outra ferramenta ou operação além das cinco delegações permitidas.
+
+## Verificação do roteamento
+
+Usando exclusivamente o mecanismo de delegação, delegue exatamente uma vez para cada agente na seguinte ordem:
 
 1. `sprint-architect`
 2. `sprint-implementer`
@@ -26,7 +40,7 @@ Using only the task delegation mechanism, delegate exactly once to each of the f
 4. `sprint-security`
 5. `sprint-reviewer`
 
-Each subagent must use no tools and return only its exact token:
+Cada subagente deve usar zero ferramentas e retornar somente seu token exato:
 
 - `AGENT_OK:sprint-architect`
 - `AGENT_OK:sprint-implementer`
@@ -34,10 +48,10 @@ Each subagent must use no tools and return only its exact token:
 - `AGENT_OK:sprint-security`
 - `AGENT_OK:sprint-reviewer`
 
-Never use build, general, explore, scout, or fallback agents. Any UI delegation card named General invalidates the check.
+Nunca use `build`, `general`, `explore`, `scout`, agentes de fallback ou qualquer outro agente. Qualquer cartão de delegação da interface chamado `General` invalida a verificação.
 
-## Result
+## Resultado
 
-Return `AGENT_ROUTING_PASS` only when the transcript contains exactly the five authorized custom-agent delegation calls, their five exact tokens, and no other tool call.
+Retorne `AGENT_ROUTING_PASS` somente quando a transcrição contiver exatamente as cinco delegações autorizadas para os agentes personalizados, seus cinco tokens exatos e nenhuma outra chamada de ferramenta.
 
-Return `INVALID_AGENT_ROUTING` if any additional tool call occurs, any file access occurs, any non-task operation occurs, any agent is unavailable, substituted, or missing, any agent returns a different token, or any UI card named General appears.
+Retorne `INVALID_AGENT_ROUTING` se ocorrer qualquer chamada adicional de ferramenta, acesso a arquivo, operação que não seja delegação, agente indisponível, substituído ou ausente, token diferente do esperado, agente de fallback ou cartão da interface chamado `General`.
