@@ -3,6 +3,9 @@
   "default_agent": "sprint-orchestrator",
   "share": "disabled",
   "subagent_depth": 1,
+  "tools": {
+    "ai-memory_*": false
+  },
   "permission": {
     "grep": "deny",
     "read": {

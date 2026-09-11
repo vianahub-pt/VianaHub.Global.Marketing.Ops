@@ -13,6 +13,7 @@ permission:
   bash:
     "*": deny
     "git status": allow
+    "git status *": allow
     "git diff --stat": allow
     "git ls-files*": allow
   task: deny

@@ -17,6 +17,7 @@ permission:
     "npm audit --audit-level=high": allow
     "git diff --check": allow
     "git status": allow
+    "git status *": allow
     "npm test -- automation/domain/*": allow
     "npm test -- automation/application/*": allow
   task: deny
