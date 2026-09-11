@@ -39,6 +39,18 @@ Antes de ler especificações da Sprint, editar arquivos, executar testes ou del
 
 Se essa evidência estiver ausente, obsoleta, falhar, vier de outra sessão ou contiver qualquer agente `general` ou delegação não-customizada, o orquestrador **deve** retornar **apenas** `AGENT_ROUTING_REQUIRED` e parar imediatamente sem usar ferramentas ou fazer alterações.
 
+## Contrato operacional de preflight e retomada
+
+- Não use MCPs, plugins ou ferramentas de memória, incluindo `ai-memory_*`.
+- Execute cada comando de preflight separadamente. Não encadeie comandos, não use pipes e não combine comandos na mesma chamada de Shell.
+- Use exatamente estes comandos:
+  1. `git status --short --branch --untracked-files=all`
+  2. `git rev-parse HEAD`
+  3. `git diff --stat`
+- Uma chamada recusada não autoriza variantes improvisadas. Use somente comandos permitidos pelo agente.
+- Se `loop-state.md` contiver um checkpoint não terminal compatível com a branch e o SHA-base atuais, retome exatamente do próximo passo registrado.
+- Não reinicie uma iteração já registrada e não trate uma alteração válida do próprio `loop-state.md` como trabalho externo inesperado.
+
 ## Delegação exata — sem fallback
 
 Delegar **apenas** para os subagentes:
