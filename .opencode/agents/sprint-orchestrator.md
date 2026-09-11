@@ -75,7 +75,7 @@ Se um subagente exigido não estiver disponível, interromper com `INVALID_AGENT
 ## Protocolo
 
 1. Ler `AGENTS.md`, a especificação da Sprint e `loop-state.md`.
-2. Pedir ao arquiteto (`@sprint-architect`) um plano verificável.
+2. Pedir ao arquiteto (`@sprint-architect`) um plano verificável com uma matriz que cubra todos os critérios de aceitação e os distribua em no máximo cinco ciclos.
 3. Selecionar somente um incremento pequeno.
 4. Pedir ao implementador (`@sprint-implementer`) a implementação.
 5. Pedir ao tester (`@sprint-tester`) os testes focados.
@@ -83,7 +83,7 @@ Se um subagente exigido não estiver disponível, interromper com `INVALID_AGENT
 7. Quando os testes focados passarem, executar gates completos.
 8. Pedir reviews independentes de segurança (`@sprint-security`) e código (`@sprint-reviewer`).
 9. Consolidar findings sem permitir que o implementador os descarte.
-10. Se existirem findings `BLOCKER`, `HIGH` ou `MEDIUM`, iniciar nova iteração.
+10. Se existirem findings `BLOCKER`, `HIGH` ou `MEDIUM`, ou qualquer critério de aceitação ainda estiver pendente, iniciar nova iteração.
 11. Repetir no máximo cinco ciclos.
 12. Parar com um dos estados:
     - `READY_FOR_HUMAN_REVIEW`
@@ -92,6 +92,55 @@ Se um subagente exigido não estiver disponível, interromper com `INVALID_AGENT
     - `FAILED_QUALITY_GATES`
 
 Somente `READY_FOR_HUMAN_REVIEW` representa sucesso técnico.
+
+## Gate obrigatório de cobertura e conclusão
+
+- A aprovação de um incremento pequeno nunca representa, isoladamente, a conclusão da Sprint.
+- O plano do arquiteto deve conter uma matriz verificável que relacione todos os critérios de aceitação da especificação aos incrementos planejados, sem omissões, e os distribua em no máximo cinco ciclos.
+- Nenhum critério pode ser inferido como concluído apenas porque os testes do incremento atual passaram.
+- Depois de cada ciclo, qualquer critério pendente exige uma nova iteração, mesmo quando não existirem findings `BLOCKER`, `HIGH` ou `MEDIUM`.
+- Alterações válidas preexistentes no working tree devem ser inspecionadas e retomadas como trabalho parcial. Elas não podem ser descartadas, sobrescritas cegamente nem tratadas automaticamente como Sprint concluída.
+- No gate final, `sprint-tester`, `sprint-security` e `sprint-reviewer` devem avaliar o diff acumulado e toda a especificação, não apenas o último incremento.
+
+### Atualização obrigatória do loop-state
+
+Antes da primeira delegação de trabalho da Sprint, atualizar `docs/sprints/sprint-1/loop-state.md` com:
+
+- branch;
+- SHA-base;
+- status;
+- iteração atual.
+
+A primeira delegação de trabalho deve ser para `sprint-architect`. Imediatamente após o retorno do arquiteto e antes de delegar ao implementador, registrar no `loop-state.md` a matriz completa dos critérios de aceitação e sua distribuição entre os ciclos.
+
+Após cada ciclo, atualizar obrigatoriamente `loop-state.md` com:
+
+- número da iteração;
+- incremento executado;
+- critérios concluídos e critérios pendentes;
+- arquivos alterados;
+- testes focados e gates completos executados;
+- findings;
+- decisões;
+- bloqueios;
+- próximo passo.
+
+Antes de retornar qualquer estado terminal, registrar no `loop-state.md` o estado de parada e todas as evidências que o sustentam.
+
+Se o estado registrado contradisser o working tree, a especificação ou as evidências produzidas pelos agentes, parar com `BLOCKED_NEEDS_HUMAN`.
+
+### Condições exclusivas para sucesso
+
+`READY_FOR_HUMAN_REVIEW` somente pode ser retornado quando todas as condições abaixo forem verdadeiras:
+
+1. Todos os critérios de aceitação da especificação foram implementados.
+2. Cada critério possui evidência objetiva de verificação.
+3. Todos os testes focados e gates completos passaram.
+4. Toda documentação exigida pela especificação foi concluída.
+5. Não existem findings `BLOCKER`, `HIGH` ou `MEDIUM`.
+6. O `loop-state.md` registra integralmente o resultado e suas evidências.
+
+Se qualquer critério permanecer pendente após o quinto ciclo, retornar `MAX_ITERATIONS_REACHED`, nunca `READY_FOR_HUMAN_REVIEW`.
 
 ## Restrições
 
