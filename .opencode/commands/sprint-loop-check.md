@@ -40,6 +40,14 @@ Usando exclusivamente o mecanismo de delegação, delegue exatamente uma vez par
 4. `sprint-security`
 5. `sprint-reviewer`
 
+Use exatamente as seguintes mensagens de delegação, na mesma ordem:
+
+1. `ROUTING_PROBE_ONLY: retorne somente AGENT_OK:sprint-architect; não use ferramentas nem realize qualquer outra operação.`
+2. `ROUTING_PROBE_ONLY: retorne somente AGENT_OK:sprint-implementer; não use ferramentas nem realize qualquer outra operação.`
+3. `ROUTING_PROBE_ONLY: retorne somente AGENT_OK:sprint-tester; não use ferramentas nem realize qualquer outra operação.`
+4. `ROUTING_PROBE_ONLY: retorne somente AGENT_OK:sprint-security; não use ferramentas nem realize qualquer outra operação.`
+5. `ROUTING_PROBE_ONLY: retorne somente AGENT_OK:sprint-reviewer; não use ferramentas nem realize qualquer outra operação.`
+
 Cada subagente deve usar zero ferramentas e retornar somente seu token exato:
 
 - `AGENT_OK:sprint-architect`
@@ -52,6 +60,8 @@ Nunca use `build`, `general`, `explore`, `scout`, agentes de fallback ou qualque
 
 ## Resultado
 
-Retorne `AGENT_ROUTING_PASS` somente quando a transcrição contiver exatamente as cinco delegações autorizadas para os agentes personalizados, seus cinco tokens exatos e nenhuma outra chamada de ferramenta.
+Retorne somente `AGENT_ROUTING_PASS` quando a transcrição contiver exatamente as cinco delegações autorizadas para os agentes personalizados, seus cinco tokens exatos e nenhuma outra chamada de ferramenta.
 
-Retorne `INVALID_AGENT_ROUTING` se ocorrer qualquer chamada adicional de ferramenta, acesso a arquivo, operação que não seja delegação, agente indisponível, substituído ou ausente, token diferente do esperado, agente de fallback ou cartão da interface chamado `General`.
+Ao primeiro erro, não faça as delegações restantes e retorne somente `INVALID_AGENT_ROUTING`. Isso se aplica se ocorrer qualquer chamada adicional de ferramenta, acesso a arquivo, operação que não seja delegação, agente indisponível, substituído ou ausente, token diferente do esperado, agente de fallback ou cartão da interface chamado `General`.
+
+Não produza relatório, tabela, explicação ou qualquer texto adicional junto ao token final.
