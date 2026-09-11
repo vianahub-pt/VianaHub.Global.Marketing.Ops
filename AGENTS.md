@@ -61,6 +61,17 @@ git diff --check       # whitespace
 - **Application status:** NO-GO for production
 - **Sprint 1 scope:** Execution domain & idempotency — no adapters, no FileRunStore
 
+## Política obrigatória de idioma no OpenCode Desktop
+
+- Toda comunicação de autoria do agente dirigida ao usuário e visível no OpenCode Desktop deve ser escrita em português do Brasil (`pt-BR`).
+- Esta regra aplica-se independentemente do idioma utilizado pelo usuário no prompt.
+- Isso inclui mensagens introdutórias, atualizações de progresso, explicações sobre ferramentas, títulos e textos de delegação, avisos, perguntas, resumos, relatórios e respostas finais.
+- Produza diretamente em `pt-BR` todas as mensagens e respostas dirigidas ao usuário. O raciocínio ou pensamento visível gerado pelo modelo pode permanecer no idioma nativo do modelo.
+- Antes de delegar, instrua cada subagente a manter em `pt-BR` toda comunicação visível dirigida ao usuário.
+- Não traduza código, comandos, caminhos, nomes de arquivos, nomes de agentes, nomes de ferramentas ou identificadores técnicos.
+- Preserve exatamente os tokens de protocolo, incluindo `INVALID_ORCHESTRATOR_CONTEXT`, `AGENT_ROUTING_REQUIRED`, `INVALID_AGENT_ROUTING`, `AGENT_ROUTING_PASS` e `AGENT_OK:<agente>`.
+- Rótulos nativos da interface que não sejam produzidos pelos agentes ficam fora do controle desta política.
+
 ## OpenCode Agent Loop Interface
 
 - **Official interface:** OpenCode Desktop is the official interface for running the agent loop
