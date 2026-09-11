@@ -10,6 +10,7 @@ permission:
   bash:
     "*": deny
     "git status": allow
+    "git status *": allow
     "git diff --stat": allow
     "git log --oneline*": allow
     "git rev-parse*": allow
@@ -71,6 +72,18 @@ Delegar **apenas** para os subagentes:
 **Nunca** usar `build`, `general`, `explore`, `scout` ou qualquer outro agente.
 
 Se um subagente exigido não estiver disponível, interromper com `INVALID_AGENT_ROUTING`.
+
+## Contrato operacional de preflight e retomada
+
+- Não use MCPs, plugins ou ferramentas de memória, incluindo `ai-memory_*`.
+- Execute cada comando de preflight separadamente. Não encadeie comandos, não use pipes e não combine comandos na mesma chamada de Shell.
+- Use exatamente estes comandos:
+  1. `git status --short --branch --untracked-files=all`
+  2. `git rev-parse HEAD`
+  3. `git diff --stat`
+- Uma chamada recusada não autoriza variantes improvisadas. Use somente comandos permitidos pelo agente.
+- Se `loop-state.md` contiver um checkpoint não terminal compatível com a branch e o SHA-base atuais, retome exatamente do próximo passo registrado.
+- Não reinicie uma iteração já registrada e não trate uma alteração válida do próprio `loop-state.md` como trabalho externo inesperado.
 
 ## Protocolo
 
