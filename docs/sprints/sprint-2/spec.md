@@ -14,7 +14,7 @@ Definir o contrato `PlatformAdapter`, integrá-lo com o domínio de execução (
 - [ ] AP-04: `AdapterContext` inclui `runId`, `brandId`, `market`, `platform`, `operation`, `payload`, `idempotencyKey`
 - [ ] AP-05: `AdapterResult` inclui `success: boolean`, `output?: unknown`, `error?: RunError`, `requiresManual: boolean`
 - [ ] AP-06: `StatusCheckResult` inclui `state: RunState`, `output?: unknown`, `error?: RunError`
-- [ ] AP-07: `PlatformAdapter` validado por schema Zod `platformAdapterSchema`
+- [ ] AP-07: `AdapterContext`, `AdapterResult` e `StatusCheckResult` possuem schemas Zod para validação runtime dos dados que atravessam a fronteira do adapter
 - [ ] AP-08: Contrato independente de infraestrutura (sem imports de drivers, HTTP clients ou frameworks)
 
 ### Integração com RunRecord e State Machine
@@ -27,7 +27,7 @@ Definir o contrato `PlatformAdapter`, integrá-lo com o domínio de execução (
 - [ ] IN-06: `attempt` é incrementado na transição `queued → running` antes da chamada ao adapter
 - [ ] IN-07: `maxAttempts` é respeitado; excedendo o limite, `failed` é terminal
 - [ ] IN-08: `idempotencyKey` é passado ao adapter no `AdapterContext`
-- [ ] IN-09: `payloadFingerprint` é recalculado se o payload mudar entre tentativas
+- [ ] IN-09: Retries preservam `payload` e `payloadFingerprint` do `RunRecord` original; tentativa de alterar o payload durante retry é rejeitada e exige um novo `RunRecord`/`idempotencyKey`
 
 ### Fake/No-Op Adapter
 
@@ -45,7 +45,7 @@ Definir o contrato `PlatformAdapter`, integrá-lo com o domínio de execução (
 - [ ] EC-01: Fluxo `running → waiting_manual` é suportado pelo orquestrador de execução
 - [ ] EC-02: Após `waiting_manual`, adapter pode ser retomado com `resume(runId)`
 - [ ] EC-03: `resume()` transita `waiting_manual → running` e chama `execute()` novamente
-- [ ] EC-04: `resume()` registra evidência da ação humana no `loop-state.md`
+- [ ] EC-04: `resume()` registra evidência sanitizada da ação humana em `RunRecord.metadata` e no checkpoint associado, nunca em arquivos do control plane Agentic
 - [ ] EC-05: Timeout em `waiting_manual` pode ser configurado (padrão: sem timeout)
 - [ ] EC-06: `waiting_manual` não é atingido por esgotamento automático de tentativas
 
