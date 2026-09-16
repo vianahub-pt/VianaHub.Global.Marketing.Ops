@@ -14,9 +14,7 @@ describe("identity and idempotency primitives", () => {
     const second = createRunId();
 
     expect(first).not.toBe(second);
-    expect(first).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-    );
+    expect(first).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
   });
 
   it("fingerprints objects canonically regardless of key order", () => {
@@ -31,8 +29,14 @@ describe("identity and idempotency primitives", () => {
   });
 
   it("derives deterministic keys from logical identity and canonical payload", () => {
-    const first = computeIdempotencyKey(identity, { title: "Hello", count: 1 });
-    const sameRequest = computeIdempotencyKey(identity, { count: 1, title: "Hello" });
+    const first = computeIdempotencyKey(identity, {
+      title: "Hello",
+      count: 1,
+    });
+    const sameRequest = computeIdempotencyKey(identity, {
+      count: 1,
+      title: "Hello",
+    });
     const differentOperation = computeIdempotencyKey(
       { ...identity, operation: "update" },
       { title: "Hello", count: 1 },
@@ -55,7 +59,9 @@ describe("identity and idempotency primitives", () => {
 
   it("rejects sensitive token-like values even without a sensitive key", () => {
     expect(() =>
-      fingerprintPayload({ value: "eyJhbGciOiJIUzI1NiJ9.payload.signature" }),
+      fingerprintPayload({
+        value: "eyJhbGciOiJIUzI1NiJ9.payload.signature",
+      }),
     ).toThrow(/Sensitive/);
   });
 
@@ -83,12 +89,9 @@ describe("identity and idempotency primitives", () => {
     },
   );
 
-  it.each([undefined, 1n, Symbol("value"), () => true])(
-    "rejects non-JSON values (%s)",
-    (value) => {
-      expect(() => fingerprintPayload({ value })).toThrow(/unsupported value/);
-    },
-  );
+  it.each([undefined, 1n, Symbol("value"), () => true])("rejects non-JSON values (%s)", (value) => {
+    expect(() => fingerprintPayload({ value })).toThrow(/unsupported value/);
+  });
 
   it("rejects symbol properties and accessors", () => {
     const symbolPayload = { value: "ok" } as Record<string | symbol, unknown>;
@@ -96,12 +99,17 @@ describe("identity and idempotency primitives", () => {
     expect(() => fingerprintPayload(symbolPayload)).toThrow(/non-JSON property/);
 
     const accessorPayload = {};
-    Object.defineProperty(accessorPayload, "value", { get: () => "ok", enumerable: true });
+    Object.defineProperty(accessorPayload, "value", {
+      get: () => "ok",
+      enumerable: true,
+    });
     expect(() => fingerprintPayload(accessorPayload)).toThrow(/accessor property/);
   });
 
   it("rejects sensitive fields nested inside arrays and objects", () => {
-    const payload = { outer: [{ safe: true, credentials: { apiKey: "secret" } }] };
+    const payload = {
+      outer: [{ safe: true, credentials: { apiKey: "secret" } }],
+    };
 
     expect(() => fingerprintPayload(payload)).toThrow(/Sensitive/);
   });
@@ -128,7 +136,10 @@ describe("identity and idempotency primitives", () => {
   it("rejects identity objects with incompatible extra fields", () => {
     expect(() =>
       computeIdempotencyKey(
-        { ...identity, extra: "not part of identity" } as unknown as typeof identity,
+        {
+          ...identity,
+          extra: "not part of identity",
+        } as unknown as typeof identity,
         { ok: true },
       ),
     ).toThrow(/exactly/);
