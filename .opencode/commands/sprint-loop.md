@@ -1,5 +1,5 @@
 ---
-description: Inicia o loop multiagente para a Sprint 1
+description: Inicia o loop multiagente para uma Sprint específica
 agent: sprint-orchestrator
 subtask: false
 ---
@@ -17,15 +17,34 @@ subtask: false
 
 # Sprint Loop
 
-Iniciar o loop multiagente para a Sprint 1.
+Iniciar o loop multiagente para a Sprint especificada.
 
-Este comando é dedicado exclusivamente à Sprint 1. Não aceita argumentos.
+Este comando aceita exatamente um argumento: o identificador da Sprint no formato `sprint-N`.
 
 Executar como:
 
 ```text
-/sprint-loop
+/sprint-loop sprint-N
 ```
+
+Exemplo: `/sprint-loop sprint-2`
+
+## Validação do argumento
+
+O argumento `$ARGUMENTS` **deve** ser validado estritamente:
+
+1. Deve haver exatamente um argumento.
+2. O argumento deve corresponder ao padrão `sprint-[0-9]+` (ex.: `sprint-1`, `sprint-2`, `sprint-10`).
+3. Se o argumento for inválido, estiver ausente ou contiver mais de um valor, retornar `BLOCKED_NEEDS_HUMAN` com mensagem descritiva e parar.
+
+## Resolução de arquivos
+
+A partir do `$ARGUMENTS` válido, resolver os caminhos:
+
+- **Especificação:** `docs/sprints/<sprint-id>/spec.md`
+- **Estado do loop:** `docs/sprints/<sprint-id>/loop-state.md`
+
+Se `spec.md` ou `loop-state.md` não existirem no diretório resolvido, retornar `BLOCKED_NEEDS_HUMAN` com mensagem indicando o arquivo ausente e parar.
 
 ## Precondição fail-closed — identidade do orquestrador
 
@@ -67,8 +86,8 @@ Se um subagente exigido não estiver disponível, interromper com `INVALID_AGENT
 
 ## Arquivos
 
-- Especificação: `docs/sprints/sprint-1/spec.md`
-- Estado do loop: `docs/sprints/sprint-1/loop-state.md`
+- Especificação: `docs/sprints/<sprint-id>/spec.md`
+- Estado do loop: `docs/sprints/<sprint-id>/loop-state.md`
 
 ## Protocolo
 
@@ -102,7 +121,7 @@ O orquestrador deve:
 
 ### Atualização obrigatória do loop-state
 
-Antes da primeira delegação de trabalho da Sprint, atualizar `docs/sprints/sprint-1/loop-state.md` com:
+Antes da primeira delegação de trabalho da Sprint, atualizar `loop-state.md` da Sprint especificada com:
 
 - branch;
 - SHA-base;

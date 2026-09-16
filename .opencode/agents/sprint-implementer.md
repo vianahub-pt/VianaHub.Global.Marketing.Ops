@@ -8,6 +8,7 @@ permission:
     "*": deny
     "automation/domain/**": allow
     "automation/application/**": allow
+    "automation/adapters/**": allow
     "docs/architecture/**": allow
     "docs/roadmap.md": allow
   bash:
@@ -66,11 +67,23 @@ Você é o implementador da Sprint. É o único agente autorizado a editar códi
 - Não alterar `.github/`, `brands/`, `data/`, `.env`
 - Não fazer commit, push, merge ou operações remotas
 - Não conectar à VPS ou ao SQL Server
-- Não implementar adapters ou integrações externas
+- Não obter, fabricar ou expor credenciais
+- Não contornar CAPTCHA, MFA, rate limits ou Terms of Service
+- Qualquer adapter que exija credenciais ou acesso oficial real deve parar em `BLOCKED_NEEDS_HUMAN`
+- Não executar chamadas reais externas durante o desenvolvimento sem autorização explícita
+
+## Regras para adapters
+
+- Pode implementar contratos, fake/no-op adapters e adapters controlados definidos pela spec
+- Nunca obter, fabricar ou expor credenciais
+- Nunca contornar CAPTCHA, MFA, rate limits ou Terms of Service
+- Qualquer adapter que exija credenciais ou acesso oficial real deve parar em `BLOCKED_NEEDS_HUMAN`
+- Não executar chamadas reais externas durante o desenvolvimento sem autorização explícita
 
 ## Escopo de edição
 
 - `automation/domain/**` — lógica de domínio
 - `automation/application/**` — lógica de aplicação
+- `automation/adapters/**` — contratos e implementações de adapters
 - `docs/architecture/**` — documentação arquitetural
 - `docs/roadmap.md` — roadmap do projeto
