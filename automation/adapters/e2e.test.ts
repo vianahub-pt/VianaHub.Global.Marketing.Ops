@@ -302,26 +302,24 @@ describe("TE-04: Verificacao de que FakeAdapter nao gera secrets em logs", () =>
     }
   });
 
-  it("erros do FakeAdapter nao contem pads de dados sensiveis", () => {
+  it("erros do FakeAdapter nao contem pads de dados sensiveis", async () => {
     const failureAdapter = new FakeAdapter("failure");
     const permanentAdapter = new FakeAdapter("permanentFailure");
 
     // failure mode
     const failureContext = buildAdapterContext(createQueuedRunRecord());
-    failureAdapter.execute(failureContext).then((result) => {
-      expect(result.error?.message).not.toMatch(/eyJ/);
-      expect(result.error?.message).not.toMatch(/Bearer/);
-      expect(result.error?.message).not.toMatch(/-----BEGIN/);
-      expect(result.error?.message).not.toMatch(/session_id/i);
-    });
+    const failureResult = await failureAdapter.execute(failureContext);
+    expect(failureResult.error?.message).not.toMatch(/eyJ/);
+    expect(failureResult.error?.message).not.toMatch(/Bearer/);
+    expect(failureResult.error?.message).not.toMatch(/-----BEGIN/);
+    expect(failureResult.error?.message).not.toMatch(/session_id/i);
 
     // permanentFailure mode
     const permanentContext = buildAdapterContext(createQueuedRunRecord());
-    permanentAdapter.execute(permanentContext).then((result) => {
-      expect(result.error?.message).not.toMatch(/eyJ/);
-      expect(result.error?.message).not.toMatch(/sk_live/);
-      expect(result.error?.message).not.toMatch(/password/i);
-    });
+    const permanentResult = await permanentAdapter.execute(permanentContext);
+    expect(permanentResult.error?.message).not.toMatch(/eyJ/);
+    expect(permanentResult.error?.message).not.toMatch(/sk_live/);
+    expect(permanentResult.error?.message).not.toMatch(/password/i);
   });
 });
 
