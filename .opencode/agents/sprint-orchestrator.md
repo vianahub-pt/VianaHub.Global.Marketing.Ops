@@ -6,7 +6,7 @@ temperature: 0.1
 permission:
   edit:
     "*": deny
-    "docs/sprints/sprint-1/loop-state.md": allow
+    "docs/sprints/**/loop-state.md": allow
   bash:
     "*": deny
     "git status": allow
@@ -117,7 +117,7 @@ Somente `READY_FOR_HUMAN_REVIEW` representa sucesso técnico.
 
 ### Atualização obrigatória do loop-state
 
-Antes da primeira delegação de trabalho da Sprint, atualizar `docs/sprints/sprint-1/loop-state.md` com:
+Antes da primeira delegação de trabalho da Sprint, atualizar `loop-state.md` da Sprint recebida pelo comando com:
 
 - branch;
 - SHA-base;

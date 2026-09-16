@@ -1,12 +1,12 @@
 ---
-description: Verifica o roteamento dos agentes personalizados da Sprint 1 sem modificar o repositório
+description: Verifica o roteamento dos agentes personalizados da Sprint sem modificar o repositório
 agent: sprint-orchestrator
 subtask: false
 ---
 
 # Verificação de Roteamento do Loop da Sprint
 
-Este comando é estritamente somente leitura. Ele não deve editar arquivos, executar comandos de shell ou testes, atualizar `loop-state`, acessar arquivos sensíveis, realizar operações Git ou ler especificações da Sprint. Não use `ARGUMENTS` nem parâmetros posicionais. Esta verificação nunca deve invocar `/sprint-loop` nem iniciar a Sprint 1.
+Este comando é estritamente somente leitura. Ele não deve editar arquivos, executar comandos de shell ou testes, atualizar `loop-state`, acessar arquivos sensíveis, realizar operações Git ou ler especificações da Sprint. Não use `ARGUMENTS` nem parâmetros posicionais. Esta verificação nunca deve invocar `/sprint-loop` nem iniciar nenhuma Sprint.
 
 O `sprint-orchestrator` pode usar somente o mecanismo de delegação necessário para invocar os cinco subagentes personalizados relacionados abaixo. Cada subagente deve usar zero ferramentas, não ler arquivos, não executar comandos, não modificar estado e retornar somente seu token `AGENT_OK` exato.
 
