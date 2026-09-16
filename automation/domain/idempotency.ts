@@ -92,15 +92,13 @@ function canonicalize(value: unknown, path = "$", seen = new Set<object>()): str
     }
     const keys = Object.keys(value);
     rejectUnexpectedProperties(value, path, new Set(keys));
-    const entries = keys
-      .sort()
-      .map((key) => {
-        if (sensitiveKeyPattern.test(key)) {
-          throw new Error(`Sensitive field "${key}" is not allowed in payload at ${path}`);
-        }
-        const objectValue = (value as Record<string, unknown>)[key];
-        return `${JSON.stringify(key)}:${canonicalize(objectValue, `${path}.${key}`, seen)}`;
-      });
+    const entries = keys.sort().map((key) => {
+      if (sensitiveKeyPattern.test(key)) {
+        throw new Error(`Sensitive field "${key}" is not allowed in payload at ${path}`);
+      }
+      const objectValue = (value as Record<string, unknown>)[key];
+      return `${JSON.stringify(key)}:${canonicalize(objectValue, `${path}.${key}`, seen)}`;
+    });
     result = `{${entries.join(",")}}`;
   }
   seen.delete(value);
