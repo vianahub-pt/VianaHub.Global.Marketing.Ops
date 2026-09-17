@@ -56,6 +56,25 @@ npm run ops -- report --brand best-fluency --market PT
 - Keep platform catalogs up to date
 - Maintain listing status accuracy
 
+## Branch Policy
+
+### Allowed merge flows
+
+| Branch prefix | Target branch | Notes |
+|---|---|---|
+| `feature/*`, `chore/*`, `bugfix/*`, `sprint-*` | `develop` | Normal development flow |
+| `develop` | `main` | Release promotion |
+| `hotfix/*` | `main` | Emergency fix (must originate from `main`) |
+
+### Rules
+
+- `feature/*`, `chore/*`, `bugfix/*`, `sprint-*` → **develop**
+- `develop` → **main**
+- `hotfix/*` is created from `main` and may open a PR directly to `main`
+- After a hotfix is merged into `main`, the same fix **must** be synced back to `develop`
+
+Pull requests to `main` from any branch other than `develop` or `hotfix/*` will be rejected by CI.
+
 ## Pull Request Process
 
 1. Ensure all quality checks pass: `npm run quality`
