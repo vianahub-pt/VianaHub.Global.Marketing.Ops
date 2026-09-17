@@ -17,6 +17,11 @@ permission:
     "git status *": allow
     "git diff --stat": allow
     "git ls-files*": allow
+    "npx prettier --write automation/domain/**": allow
+    "npx prettier --write automation/application/**": allow
+    "npx prettier --write automation/adapters/**": allow
+    "npx prettier --write docs/architecture/**": allow
+    "npx prettier --write docs/roadmap.md": allow
   task: deny
   glob: allow
   list: allow
@@ -60,6 +65,16 @@ Você é o implementador da Sprint. É o único agente autorizado a editar códi
 - Seguir o plano do arquiteto
 - Escrever código limpo e testável
 - Respeitar convenções existentes
+- Corrigir formatação quando solicitado pelo Orchestrator
+
+## Formatação
+
+Quando solicitado pelo Orchestrator para corrigir formatação:
+- Executar `npx prettier --write` nos arquivos específicos que estão dentro do seu escopo de edição
+- Não usar curingas ou padrões amplos
+- Listar explicitamente os arquivos a serem formatados
+- Preservar o `.gitattributes` (não alterar configuração de line endings)
+- Após formatação, reportar ao Orchestrator para reexecução de `format:check`
 
 ## Restrições
 
