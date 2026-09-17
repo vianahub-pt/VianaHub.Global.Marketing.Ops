@@ -199,11 +199,20 @@ VianaHub.Global.Marketing.Ops/
 
 **Versão:** 0.4.0 (Production Foundation)
 
+**Application status:** NO-GO for production — awaiting persistence, real controlled adapter, and operational hardening.
+
+### Sprints Concluídas
+
+- [x] **Sprint 0:** Production Foundation
+- [x] **Sprint 1:** Execution Domain & Idempotency (77/77 critérios, 268 testes, 93.26% cobertura)
+- [x] **Sprint 2:** Adapter Framework & Controlled Fake Pilot (75/75 critérios, 392 testes, 92.3% cobertura)
+
+### Funcionalidades Implementadas
+
 - [x] Estrutura de pastas criada
 - [x] Brands: Best Fluency e GERIT com dados iniciais
 - [x] Suporte a 10 mercados internacionais
 - [x] Catálogo de plataformas (estrutura + exemplos)
-- [x] Interface de adapter definida (brand + market + platform)
 - [x] Configuração Playwright
 - [x] Documentação de arquitetura e política
 - [x] TypeScript configurado
@@ -214,8 +223,21 @@ VianaHub.Global.Marketing.Ops/
 - [x] Testes unitários
 - [x] Catálogo real Portugal: 9 plataformas (4 globais + 5 PT)
 - [x] Perfil Best Fluency completo (phone, address, categories, services)
-- [ ] Adapters implementados
-- [ ] Workflows de automação
+- [x] Domínio de execução (RunId, RunRecord, state machine, idempotency)
+- [x] Framework de adapters (PlatformAdapter, FakeAdapter, InMemoryRepo)
+- [x] Orquestração com suporte a checkpoints no modelo de execução
+- [x] Support para waiting_manual com resume
+- [x] Redação de erros e logs
+- [x] Testes E2E, recovery, integração e unitários
+
+### Pendente (Sprints Futuras)
+
+- [ ] Persistência real (RunRepository, checkpoints)
+- [ ] Primeiro adapter externo controlado
+- [ ] Scheduling e batch processing
+- [ ] Observabilidade e alertas
+- [ ] Analytics e reporting
+- [ ] Expansão multi-mercado
 
 ---
 

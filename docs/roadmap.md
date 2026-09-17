@@ -4,7 +4,9 @@
 
 **Version 0.4.0** - Production Foundation (Sprint 0)
 
-## Sprint 0: Production Foundation
+**Application status:** NO-GO for production — awaiting persistence, real controlled adapter, and operational hardening.
+
+## Sprint 0: Production Foundation — CONCLUÍDA
 
 ### Goals
 
@@ -29,7 +31,7 @@
 - [x] SECURITY.md
 - [x] CONTRIBUTING.md
 
-## Sprint 1: Execution Domain & Idempotency
+## Sprint 1: Execution Domain & Idempotency — CONCLUÍDA
 
 ### Goals
 
@@ -41,108 +43,136 @@
 
 ### Deliverables
 
-- [ ] `RunId` and `RunRecord`
-- [ ] States: `queued`, `running`, `waiting_manual`, `succeeded`, `failed`, `cancelled`
-- [ ] State machine with validated transitions
-- [ ] Deterministic idempotency key
-- [ ] Payload fingerprint without sensitive data
-- [ ] `RunStore` interface
-- [ ] Local file-based implementation separated from domain rules
-- [ ] Atomic checkpoint persistence
-- [ ] Concurrency locking
-- [ ] Attempt and retry model
-- [ ] Error and log redaction
-- [ ] `dry-run` mode
-- [ ] Unit, integration and failure recovery tests
+- [x] `RunId` and `RunRecord`
+- [x] States: `queued`, `running`, `waiting_manual`, `succeeded`, `failed`, `cancelled`
+- [x] State machine with validated transitions
+- [x] Deterministic idempotency key
+- [x] Payload fingerprint without sensitive data
+- [x] `RunStore` interface
+- [x] Local file-based implementation separated from domain rules
+- [x] Atomic checkpoint persistence
+- [x] Concurrency locking
+- [x] Attempt and retry model
+- [x] Error and log redaction
+- [x] `dry-run` mode
+- [x] Unit, integration and failure recovery tests
 
-### Out of Scope
-
-- Real adapters
-- External API calls
-- Browser automation
-- Scheduler
-- Dashboard
-- Database
-- Multi-market activation
-
-## Sprint 2: Adapter Framework & First Controlled Pilot
+## Sprint 2: Adapter Framework & Controlled Fake Pilot — CONCLUÍDA
 
 ### Goals
 
 - Integrate the adapter contract with the run domain
 - Create a fake/no-op adapter for testing
-- Implement a single pilot adapter
-- Choose Google Business Profile only if official access and credentials are available
+- Implement execution orchestration with checkpoints
 - Support manual/semi-automatic flows
 - Never bypass CAPTCHA, MFA or terms of service
 
 ### Deliverables
 
-- [x] Initial `PlatformAdapter` interface (baseline)
-- [ ] Adapter contract integrated with runs and checkpoints
-- [ ] Fake adapter for deterministic end-to-end tests
-- [ ] First controlled external adapter
-- [ ] Manual-action handoff
-- [ ] Status synchronization
-- [ ] Adapter-specific security and compliance review
+- [x] `PlatformAdapter` interface (adapter contract)
+- [x] `FakeAdapter` for deterministic end-to-end tests
+- [x] Execution orchestration with checkpoint persistence
+- [x] Retry and waiting_manual with resume
+- [x] Status synchronization between adapter and run domain
+- [x] `AdapterContext` for dependency injection
+- [x] `InMemoryRepo` for testing
+- [x] E2E, recovery, integration and unit tests
+- [x] **No real external adapter in production**
 
-## Sprint 3: Analytics & Reporting
+## Sprint 3: Production Persistence + First Real Controlled Adapter
 
 ### Goals
 
-- Historical data storage
-- Performance metrics
-- Trend analysis
-- Operational alerts
+- Implement real persistence for RunRepository and checkpoints
+- Enable recovery after restart
+- Add dry-run mode for real adapters
+- Integrate first real external adapter (only via official access and user-provided credentials)
+- Secrets only through secure mechanisms, never in payload/logs
+- Pilot with Best Fluency / PT market
+- Integration, recovery and E2E testing
+
+### Deliverables
+
+- [ ] Real file-based or database RunRepository
+- [ ] Checkpoint persistence across restarts
+- [ ] Recovery orchestrator for interrupted runs
+- [ ] Dry-run mode for real adapters
+- [ ] First controlled external adapter (official access only)
+- [ ] Secure credential injection (env vars, never logged)
+- [ ] Best Fluency / PT pilot integration
+- [ ] Integration tests with real adapter
+- [ ] Recovery tests after simulated failure
+- [ ] E2E tests for full workflow
+
+### Out of Scope for Sprint 3
+
+- Dashboard / frontend
+- Multi-market expansion
+- Analytics / reporting
+- Scheduling / batch processing
+
+## Sprint 4: Scheduling + Observability + Operational Hardening
+
+### Goals
+
+- Cron scheduler for automated runs
+- Batch processing support
+- Operational monitoring and alerting
+- Extended audit logging
+- Error recovery automation
+
+### Deliverables
+
+- [ ] Cron scheduler
+- [ ] Batch processing
+- [ ] Operational monitoring
+- [ ] Alerting system
+- [ ] Audit logging
+- [ ] Error recovery automation
+
+## Sprint 5: Analytics + Reporting + Multi-Market Preparation
+
+### Goals
+
+- Historical data storage and trend analysis
+- Performance metrics and dashboards
+- Multi-market data structure preparation
+- Report localization
 
 ### Deliverables
 
 - [ ] Historical data storage
 - [ ] Trend reports
 - [ ] Performance dashboards
-- [ ] Alerting system
+- [ ] Multi-market data structure
+- [ ] Report localization
 
-## Sprint 4: Multi-Market Expansion
+## Post-MVP — Market Expansion
 
 ### Goals
 
-- Controlled activation of new markets
-- Market-specific validations
-- Report localization
+- Controlled activation of BR (Brazil) market
+- Controlled activation of US (United States) market
+- Controlled activation of ES (Spain) market
+- Additional international markets as validated
 
 ### Planned Markets
 
-- BR (Brazil) - Secondary priority
-- US (United States) - Secondary priority
-- ES (Spain) - Secondary priority
-
-## Sprint 5: Scheduling & Batch Automation
-
-### Goals
-
-- Scheduling
-- Batch processing
-- Operational retries
-- Recovery
-- Extended auditing
-
-### Deliverables
-
-- [ ] Cron scheduler
-- [ ] Batch processing
-- [ ] Error recovery
-- [ ] Audit logging
+- BR (Brazil) — Secondary priority
+- US (United States) — Secondary priority
+- ES (Spain) — Secondary priority
 
 ## Design Principles
 
 1. **Security First:** All inputs validated, paths secured
 2. **Operational Scope:** Only Brand + Market combinations
 3. **GERIT Frozen:** Never modify GERIT brand data
-4. **Minimal Footprint:** No API, no database, no UI
+4. **Minimal Footprint:** No API, no database, no UI (until Post-MVP)
 5. **GitOps Workflow:** All changes via Git commits
 6. **Idempotency First:** External operations must be safe to retry
 7. **Human in the Loop:** CAPTCHA, authentication and verification may require manual action
 8. **No Secrets in Runs:** Runtime records must contain only redacted operational metadata
+9. **Production First:** Persistence and real adapter before analytics and expansion
 
 ## Technical Stack
 

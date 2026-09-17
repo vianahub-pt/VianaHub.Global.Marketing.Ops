@@ -106,6 +106,33 @@ Se um subagente exigido não estiver disponível, interromper com `INVALID_AGENT
 
 Somente `READY_FOR_HUMAN_REVIEW` representa sucesso técnico.
 
+## FINAL_REMEDIATION
+
+Se após o ciclo 5 todos os acceptance criteria estiverem concluídos e todos os quality gates estiverem PASS, mas ainda existirem findings BLOCKER, HIGH ou MEDIUM, entrar em modo FINAL_REMEDIATION:
+
+1. **Máximo de 2 rounds** de FINAL_REMEDIATION
+2. **Não criar Ciclo 6** — o trabalho continua como extensão do ciclo 5
+3. **Architect classifica tecnicamente** os findings:
+   - Obrigatório: viola critério de aceitação, segurança ou acordos de design
+   - Excessivo: melhoria de manutenibilidade, estilo, convenção — não viola requisitos
+4. **Não permitir downgrade artificial** de findings OBRIGATÓRIOS para EXCESSIVOS
+5. **Implementer corrige** apenas findings classificados como OBRIGATÓRIOS
+6. **Tester executa** todos os quality gates (format:check, lint, typecheck, test:coverage, validate:data, build, git diff --check)
+7. **Security e Reviewer reavaliam** o diff acumulado completo
+8. **Somente 0 BLOCKER/HIGH/MEDIUM** permite READY_FOR_HUMAN_REVIEW
+
+### Restrições da FINAL_REMEDIATION
+
+- O Implementer não pode corrigir findings classificados como EXCESSIVOS
+- O Architect não pode reclassificar findings OBRIGATÓRIOS como EXCESSIVOS após o início da correção
+- **A classificação do Architect NÃO elimina nem reduz por si só a severidade de um finding**
+- Um finding HIGH/MEDIUM classificado pelo Architect como excessivo continua ativo até que sprint-security e/ou sprint-reviewer, conforme sua origem, o reavaliem no diff acumulado e:
+  - confirmem sua resolução; ou
+  - reclassifiquem sua severidade com justificativa técnica
+- **READY_FOR_HUMAN_REVIEW continua exigindo resultado FINAL dos reviewers com 0 BLOCKER, 0 HIGH e 0 MEDIUM**
+- Cada round de FINAL_REMEDIATION deve ser documentado no loop-state.md
+- Se após 2 rounds ainda houver BLOCKER/HIGH/MEDIUM, retornar MAX_ITERATIONS_REACHED
+
 ## Gate obrigatório de cobertura e conclusão
 
 - A aprovação de um incremento pequeno nunca representa, isoladamente, a conclusão da Sprint.
@@ -154,6 +181,27 @@ Se o estado registrado contradisser o working tree, a especificação ou as evid
 6. O `loop-state.md` registra integralmente o resultado e suas evidências.
 
 Se qualquer critério permanecer pendente após o quinto ciclo, retornar `MAX_ITERATIONS_REACHED`, nunca `READY_FOR_HUMAN_REVIEW`.
+
+## Tratamento de falhas de formatação (Prettier/CRLF)
+
+Quando `format:check` falhar:
+
+1. **O ciclo permanece incompleto/IN_PROGRESS** — falha de formatação não é finding BLOCKER
+2. **Redelegar formatação ao Implementer** com as seguintes restrições:
+   - Conceder apenas permissão para executar `npx prettier --write` nos arquivos que o Implementer já pode editar (conforme seu escopo de edição)
+   - **Não conceder** shell genérico, `npm *` ou `npx *` ilimitados
+   - A permissão deve ser específica para os arquivos alterados no ciclo atual
+3. **Preservar .gitattributes** — o `.gitattributes` já define `eol=lf` para todos os arquivos de texto; não alterar essa configuração
+4. **Após correção**, reexecutar `format:check` para validar
+5. **Somente continuar após PASS** — o ciclo só pode ser concluído com `format:check` aprovado
+6. Se não puder ser corrigido dentro das permissões/execução disponível, usar `FAILED_QUALITY_GATES` ou `BLOCKED_NEEDS_HUMAN` quando realmente exigir intervenção humana
+
+### Permissão específica para formatação
+
+O Orchestrator deve conceder ao Implementer permissão para executar formatação apenas via comando específico:
+- `npx prettier --write <arquivo>` para cada arquivo alterado no ciclo
+- Não usar curingas ou padrões amplos
+- Listar explicitamente os arquivos a serem formatados
 
 ## Restrições
 
