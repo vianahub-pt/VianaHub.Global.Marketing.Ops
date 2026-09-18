@@ -84,16 +84,21 @@ export class FakeAdapter implements PlatformAdapter {
   }
 
   async checkStatus(_runId: RunId): Promise<StatusCheckResult> {
-    if (!this.lastResult) {
-      return { state: "queued" };
+    // When a prior execute() was called, derive the status from the actual
+    // result for strict consistency between execute() and checkStatus().
+    if (this.lastResult) {
+      const state: RunState = resolveState(this.lastResult);
+      return {
+        state,
+        output: this.lastResult.output,
+        error: this.lastResult.error,
+      };
     }
 
-    const state: RunState = resolveState(this.lastResult);
-    return {
-      state,
-      output: this.lastResult.output,
-      error: this.lastResult.error,
-    };
+    // When no execute() has been called, the adapter has no knowledge of the
+    // remote state. Return "queued" to represent a run that has not been
+    // processed yet — the initial state in the domain model.
+    return { state: "queued" };
   }
 }
 
