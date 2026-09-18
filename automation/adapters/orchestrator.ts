@@ -8,6 +8,7 @@ import { redactError, redactLog } from "../domain/redaction.js";
 import { buildAdapterContext } from "./adapter-context.js";
 import type { AdapterResult, PlatformAdapter } from "./platform-adapter.js";
 import { synchronizeStatus } from "./status-sync.js";
+import { recoveryLoop as recoveryLoopImpl, type RecoveryResult } from "./recovery.js";
 
 // ─── executeRun ──────────────────────────────────────────────────────────────
 
@@ -145,6 +146,36 @@ export async function resumeRun(
   return repo.update(finalRecord);
 }
 
+// ─── executeRunWithRecovery ─────────────────────────────────────────────────
+
+/**
+ * Entry point that runs recovery before executing a new run.
+ *
+ * Flow:
+ *  1. Execute recoveryLoop to handle any interrupted or retryable runs
+ *  2. Execute the new run via executeRun
+ *
+ * RR-05: recoveryLoop() is called before executing new runs.
+ *
+ * @param record - The current run record (must be in `queued` state)
+ * @param adapter - The platform adapter to execute
+ * @param repo - The run repository for persistence
+ * @returns Object containing recovery results and the executed run record
+ */
+export async function executeRunWithRecovery(
+  record: RunRecord,
+  adapter: PlatformAdapter,
+  repo: RunRepository,
+): Promise<{ recoveryResults: RecoveryResult[]; executedRun: RunRecord }> {
+  // 1. Run recovery before new execution
+  const recoveryResults = await recoveryLoopImpl(adapter, repo);
+
+  // 2. Execute the new run
+  const executedRun = await executeRun(record, adapter, repo);
+
+  return { recoveryResults, executedRun };
+}
+
 // ─── processResult (internal) ────────────────────────────────────────────────
 
 /**
@@ -230,3 +261,7 @@ function resolveTargetState(result: AdapterResult): import("../domain/run-state.
   }
   return "failed";
 }
+
+// Re-export recoveryLoop for orchestrator consumers
+export { recoveryLoopImpl as recoveryLoop };
+export type { RecoveryResult, RecoveryStrategy } from "./recovery.js";

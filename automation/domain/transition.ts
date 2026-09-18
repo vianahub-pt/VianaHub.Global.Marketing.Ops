@@ -68,6 +68,9 @@ export function transitionRunState(context: TransitionContext): RunRecord {
 
   if (targetState === "succeeded" || targetState === "failed" || targetState === "cancelled") {
     updates.finishedAt = now;
+  } else {
+    // Clear finishedAt when transitioning to a non-terminal state
+    updates.finishedAt = undefined;
   }
 
   if (targetState === "failed" && error) {

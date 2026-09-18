@@ -178,20 +178,39 @@ stateDiagram-v2
 
 ```
 automation/adapters/
-├── platform-adapter.ts       # PlatformAdapter, AdapterResult, StatusCheckResult
-├── adapter-context.ts        # AdapterContext, buildAdapterContext
-├── fake-adapter.ts           # FakeAdapter (testing)
-├── orchestrator.ts           # executeRun, resumeRun
-├── status-sync.ts            # synchronizeStatus, reconcile
-├── in-memory-repo.ts         # InMemoryRunRepository (testing)
-├── index.ts                  # Barrel exports
-├── integration.test.ts       # Integration tests
-├── recovery.test.ts          # Recovery & retry tests
-├── e2e.test.ts               # End-to-end tests
-├── platform-adapter.test.ts  # Unit tests
-├── adapter-context.test.ts   # Unit tests
-├── fake-adapter.test.ts      # Unit tests
-└── orchestrator.test.ts      # Unit tests
+├── platform-adapter.ts              # PlatformAdapter, AdapterResult, StatusCheckResult
+├── adapter-context.ts               # AdapterContext, buildAdapterContext
+├── fake-adapter.ts                  # FakeAdapter (testing)
+├── orchestrator.ts                  # executeRun, resumeRun
+├── status-sync.ts                   # synchronizeStatus, reconcile
+├── in-memory-repo.ts                # InMemoryRunRepository (testing)
+├── file-run-repo.ts                 # FileRunRepository (Sprint 3 — filesystem persistence)
+├── file-checkpoint-repo.ts          # FileCheckpointRepository (Sprint 3 — checkpoint persistence)
+├── checkpoint-repository.ts         # CheckpointRepository interface (Sprint 3)
+├── persistence-errors.ts            # PersistenceError, CorruptedRecordError, ConcurrencyConflictError
+├── recovery.ts                      # detectInterruptedRuns, recoverRun, recoveryLoop (Sprint 3)
+├── gbp-dry-run-adapter.ts           # GbpDryRunAdapter — dry-run adapter for GBP (Sprint 3)
+├── google-business-profile-adapter.ts # GoogleBusinessProfileAdapter — real adapter (Sprint 3)
+├── access-preflight-gate.ts         # checkGbpPreflight, loadGbpConfig — credential validation (Sprint 3)
+├── pilot-scope.ts                   # checkPilotScope, checkLivePilotGate — pilot constraints (Sprint 3)
+├── index.ts                         # Barrel exports
+├── integration.test.ts              # Integration tests
+├── recovery.test.ts                 # Recovery & retry tests
+├── e2e.test.ts                      # End-to-end tests
+├── e2e-file-persistence.test.ts     # E2E tests with filesystem persistence (Sprint 3)
+├── recovery-integration.test.ts     # Recovery integration tests (Sprint 3)
+├── recovery-unit.test.ts            # Recovery unit tests (Sprint 3)
+├── file-run-repo.test.ts            # FileRunRepository tests (Sprint 3)
+├── file-checkpoint-repo.test.ts     # FileCheckpointRepository tests (Sprint 3)
+├── file-repo-integration.test.ts    # File repository integration tests (Sprint 3)
+├── access-preflight-gate.test.ts    # Preflight gate tests (Sprint 3)
+├── google-business-profile-adapter.test.ts # GBP adapter tests (Sprint 3)
+├── gbp-dry-run-adapter.test.ts      # GBP dry-run adapter tests (Sprint 3)
+├── pilot-scope.test.ts              # Pilot scope tests (Sprint 3)
+├── platform-adapter.test.ts         # Unit tests
+├── adapter-context.test.ts          # Unit tests
+├── fake-adapter.test.ts             # Unit tests
+└── orchestrator.test.ts             # Unit tests
 ```
 
 ---
@@ -204,3 +223,7 @@ automation/adapters/
 - **Error redaction:** `redactError()` and `redactLog()` sanitize sensitive tokens from errors and logs.
 - **Checkpointing:** Every `executeRun()` and `resumeRun()` creates a checkpoint before execution.
 - **Deterministic testing:** `FakeAdapter` produces predictable outcomes for each mode.
+- **Pilot scope:** Live execution is restricted to pilot constraints (see `pilot-scope.ts`).
+- **Filesystem persistence:** Run records and checkpoints are persisted as JSON files with atomic writes (see [persistence.md](./persistence.md)).
+- **Recovery:** Interrupted runs are detected and recovered via `recoveryLoop()` (see [persistence.md](./persistence.md)).
+- **Dry-run first:** Live execution requires successful dry-run completion (see [adapter-configuration.md](./adapter-configuration.md)).

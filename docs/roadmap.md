@@ -79,7 +79,7 @@
 - [x] E2E, recovery, integration and unit tests
 - [x] **No real external adapter in production**
 
-## Sprint 3: Production Persistence + First Real Controlled Adapter
+## Sprint 3: Production Persistence + First Real Controlled Adapter — CONCLUÍDA
 
 ### Goals
 
@@ -93,16 +93,20 @@
 
 ### Deliverables
 
-- [ ] Real file-based or database RunRepository
-- [ ] Checkpoint persistence across restarts
-- [ ] Recovery orchestrator for interrupted runs
-- [ ] Dry-run mode for real adapters
-- [ ] First controlled external adapter (official access only)
-- [ ] Secure credential injection (env vars, never logged)
-- [ ] Best Fluency / PT pilot integration
-- [ ] Integration tests with real adapter
-- [ ] Recovery tests after simulated failure
-- [ ] E2E tests for full workflow
+- [x] Real file-based RunRepository (`FileRunRepository`)
+- [x] Checkpoint persistence across restarts (`FileCheckpointRepository`)
+- [x] Recovery orchestrator for interrupted runs (`recovery.ts`)
+- [x] Dry-run mode for real adapters (`GbpDryRunAdapter`, `GoogleBusinessProfileAdapter`)
+- [x] First controlled external adapter — Google Business Profile (`google-business-profile-adapter.ts`)
+- [x] Secure credential injection via env vars, never logged (`access-preflight-gate.ts`)
+- [x] Best Fluency / PT pilot scope validation (`pilot-scope.ts`)
+- [x] Live pilot opt-in gate (`LIVE_PILOT_ENABLED`)
+- [x] Integration tests with real adapter
+- [x] Recovery tests after simulated failure
+- [x] E2E tests for full workflow with filesystem persistence
+- [x] Architecture documentation — persistence and recovery (`docs/architecture/persistence.md`)
+- [x] Adapter configuration guide (`docs/architecture/adapter-configuration.md`)
+- [x] Live smoke test documentation (`docs/architecture/live-smoke-test.md`)
 
 ### Out of Scope for Sprint 3
 
