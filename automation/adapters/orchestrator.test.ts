@@ -5,7 +5,7 @@ import type { RunRecord } from "../domain/run-record.js";
 import type { RunRepository } from "../domain/repository.js";
 
 import { FakeAdapter } from "./fake-adapter.js";
-import { executeRun, resumeRun } from "./orchestrator.js";
+import { executeRun, resumeRun, executeRunWithRecovery } from "./orchestrator.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -15,8 +15,8 @@ function createQueuedRunRecord(overrides?: Partial<RunRecord>): RunRecord {
     runId: "550e8400-e29b-41d4-a716-446655440000" as RunId,
     brandId: "best-fluency",
     market: "PT",
-    platform: "google-business",
-    operation: "listing-create",
+    platform: "google-business-profile",
+    operation: "createLocalPost",
     state: "queued",
     attempt: 0,
     maxAttempts: 3,
@@ -65,8 +65,12 @@ function createInMemoryRepository(initialRecords: RunRecord[] = []): RunReposito
       return record;
     },
 
-    async list(): Promise<RunRecord[]> {
-      return [...records.values()];
+    async list(filters?: { state?: string }): Promise<RunRecord[]> {
+      let results = [...records.values()];
+      if (filters?.state !== undefined) {
+        results = results.filter((r) => r.state === filters.state);
+      }
+      return results;
     },
 
     async findByIdempotencyKey(): Promise<RunRecord | null> {
@@ -436,5 +440,89 @@ describe("executeRun — checkStatus called", () => {
     await executeRun(record, adapter, repo);
 
     expect(checkStatusCalled).toBe(true);
+  });
+});
+
+// ─── executeRunWithRecovery — integration ────────────────────────────────────
+
+describe("executeRunWithRecovery — integration", () => {
+  it("runs recovery before executing new run", async () => {
+    // Arrange: create a running record (interrupted) and a queued record
+    const interruptedRecord = createQueuedRunRecord({
+      runId: "interrupted-run-001" as RunId,
+      state: "running",
+      attempt: 1,
+    });
+    const queuedRecord = createQueuedRunRecord({
+      runId: "new-run-001" as RunId,
+    });
+
+    const adapter = new FakeAdapter("success");
+    const repo = createInMemoryRepository([interruptedRecord, queuedRecord]);
+
+    // Track call order
+    const callOrder: string[] = [];
+
+    // Spy on repo.list to track recovery detection
+    const originalList = repo.list.bind(repo);
+    repo.list = async (...args: Parameters<typeof originalList>) => {
+      const result = await originalList(...args);
+      // Only record for running state queries (recovery detection)
+      if (args[0]?.state === "running") {
+        callOrder.push("recovery:detectInterruptedRuns");
+      }
+      return result;
+    };
+
+    // Spy on repo.update to track recovery actions
+    const originalUpdate = repo.update.bind(repo);
+    repo.update = async (record: RunRecord) => {
+      if (record.runId === "interrupted-run-001" && record.state !== "running") {
+        callOrder.push("recovery:recoverRun");
+      }
+      return originalUpdate(record);
+    };
+
+    // Act
+    const result = await executeRunWithRecovery(queuedRecord, adapter, repo);
+
+    // Assert: recovery ran before execution
+    expect(result.recoveryResults).toBeDefined();
+    expect(result.executedRun).toBeDefined();
+    expect(result.executedRun.state).toBe("succeeded");
+
+    // Verify recovery was called
+    expect(callOrder).toContain("recovery:detectInterruptedRuns");
+  });
+
+  it("returns recovery results alongside executed run", async () => {
+    const queuedRecord = createQueuedRunRecord({
+      runId: "new-run-002" as RunId,
+    });
+
+    const adapter = new FakeAdapter("success");
+    const repo = createInMemoryRepository([queuedRecord]);
+
+    const result = await executeRunWithRecovery(queuedRecord, adapter, repo);
+
+    expect(result).toHaveProperty("recoveryResults");
+    expect(result).toHaveProperty("executedRun");
+    expect(Array.isArray(result.recoveryResults)).toBe(true);
+    expect(result.executedRun.state).toBe("succeeded");
+  });
+
+  it("continues execution even when recovery has no interrupted runs", async () => {
+    const queuedRecord = createQueuedRunRecord({
+      runId: "new-run-003" as RunId,
+    });
+
+    const adapter = new FakeAdapter("success");
+    const repo = createInMemoryRepository([queuedRecord]);
+
+    const result = await executeRunWithRecovery(queuedRecord, adapter, repo);
+
+    // Recovery should complete (empty results) and execution should proceed
+    expect(result.recoveryResults).toEqual([]);
+    expect(result.executedRun.state).toBe("succeeded");
   });
 });

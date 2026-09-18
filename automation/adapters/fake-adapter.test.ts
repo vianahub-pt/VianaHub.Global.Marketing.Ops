@@ -12,8 +12,8 @@ function createContext(overrides?: Partial<AdapterContext>): AdapterContext {
     runId: "550e8400-e29b-41d4-a716-446655440000" as RunId,
     brandId: "best-fluency",
     market: "PT",
-    platform: "google-business",
-    operation: "listing-create",
+    platform: "google-business-profile",
+    operation: "createLocalPost",
     payload: { name: "Test Business" },
     idempotencyKey: "a".repeat(64) as IdempotencyKey,
     ...overrides,
@@ -116,8 +116,29 @@ describe("FakeAdapter — permanentFailure mode", () => {
 // ─── checkStatus — before execute ────────────────────────────────────────────
 
 describe("FakeAdapter — checkStatus before execute", () => {
-  it("returns queued when no execute() has been called", async () => {
+  it("returns queued when no execute() has been called in success mode", async () => {
     const adapter = new FakeAdapter("success");
+    const runId = "550e8400-e29b-41d4-a716-446655440000" as RunId;
+    const status = await adapter.checkStatus(runId);
+    expect(status.state).toBe("queued");
+  });
+
+  it("returns queued when no execute() has been called in failure mode", async () => {
+    const adapter = new FakeAdapter("failure");
+    const runId = "550e8400-e29b-41d4-a716-446655440000" as RunId;
+    const status = await adapter.checkStatus(runId);
+    expect(status.state).toBe("queued");
+  });
+
+  it("returns queued when no execute() has been called in manual mode", async () => {
+    const adapter = new FakeAdapter("manual");
+    const runId = "550e8400-e29b-41d4-a716-446655440000" as RunId;
+    const status = await adapter.checkStatus(runId);
+    expect(status.state).toBe("queued");
+  });
+
+  it("returns queued when no execute() has been called in permanentFailure mode", async () => {
+    const adapter = new FakeAdapter("permanentFailure");
     const runId = "550e8400-e29b-41d4-a716-446655440000" as RunId;
     const status = await adapter.checkStatus(runId);
     expect(status.state).toBe("queued");
