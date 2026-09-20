@@ -8,7 +8,6 @@ import {
   openSync,
   closeSync,
   unlinkSync,
-  utimesSync,
 } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -20,26 +19,12 @@ import { CorruptedRecordError, ConcurrencyConflictError } from "./persistence-er
 
 // ─── Module mock for lock/unlock testing ──────────────────────────────────────
 
-let mockUnlinkSyncPath: string | null = null;
-let mockUnlinkSyncError: (() => never) | null = null;
 let mockWriteSyncCapturePid: string | undefined;
 
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
   return {
     ...actual,
-    unlinkSync: (...args: Parameters<typeof actual.unlinkSync>) => {
-      const path = args[0];
-      if (
-        mockUnlinkSyncPath !== null &&
-        typeof path === "string" &&
-        path === mockUnlinkSyncPath &&
-        mockUnlinkSyncError !== null
-      ) {
-        mockUnlinkSyncError();
-      }
-      return actual.unlinkSync(...args);
-    },
     writeSync: (...args: Parameters<typeof actual.writeSync>) => {
       // Capture PID written to lock files
       if (typeof args[1] === "string") {
@@ -773,30 +758,6 @@ describe("FileRunRepository", () => {
       expect(lockFiles).toHaveLength(0);
     });
 
-    it("stale lock cleanup: old lock files are removed before acquisition", async () => {
-      const repo = new FileRunRepository(tempDir);
-      const record = createRunRecord();
-
-      // Create a stale lock file with PID format (as used by acquireFileLock)
-      const lockFile = join(tempDir, `${record.runId}.lock`);
-      writeFileSync(lockFile, "99999", "utf8");
-
-      // Set mtime to 60 seconds ago so cleanupStaleLocks considers it stale
-      const oldTime = new Date(Date.now() - 60_000);
-      utimesSync(lockFile, oldTime, oldTime);
-
-      // Verify lock file exists
-      expect(readdirSync(tempDir).filter((f) => f.endsWith(".lock"))).toHaveLength(1);
-
-      // Perform an operation — stale locks older than 30s should be cleaned up
-      await repo.create(record);
-
-      // No .lock files should remain after operation
-      const files = readdirSync(tempDir);
-      const lockFiles = files.filter((f) => f.endsWith(".lock"));
-      expect(lockFiles).toHaveLength(0);
-    });
-
     it("lock acquisition after release: lock can be re-acquired after release", async () => {
       const repo = new FileRunRepository(tempDir);
       const record = createRunRecord();
@@ -843,64 +804,60 @@ describe("FileRunRepository", () => {
       expect(mockWriteSyncCapturePid).toBe(String(process.pid));
     });
 
-    it("stale lock cleanup propagates EACCES from unlinkSync", async () => {
+    it("concurrent canonical lock is never deleted or renamed by acquisition", async () => {
       const repo = new FileRunRepository(tempDir);
       const record = createRunRecord();
 
-      // Create a stale lock file with a dead PID
+      // Create a canonical lock file manually via O_EXCL
       const lockFile = join(tempDir, `${record.runId}.lock`);
-      writeFileSync(lockFile, "99999", "utf8");
+      const fd = openSync(lockFile, "wx");
+      closeSync(fd);
 
-      // Set mtime to 60 seconds ago so it's considered stale
-      const oldTime = new Date(Date.now() - 60_000);
-      utimesSync(lockFile, oldTime, oldTime);
+      // Verify lock file exists before the attempt
+      expect(readdirSync(tempDir).filter((f) => f.endsWith(".lock"))).toHaveLength(1);
 
-      // Configure mock to throw EACCES when unlinkSync is called
-      // on our lock file
-      mockUnlinkSyncPath = lockFile;
-      mockUnlinkSyncError = () => {
-        const err = new Error("EACCES: permission denied") as Error & {
-          code: string;
-        };
-        err.code = "EACCES";
-        throw err;
-      };
-
+      // Attempt to create a record — acquisition must fail after retries
+      // because the lock is held. This is a fail-closed design: the lock
+      // is never deleted, renamed, or replaced.
       try {
-        // cleanupStaleLocks runs during create() and should propagate
-        // the EACCES error (not swallow it)
-        await expect(repo.create(record)).rejects.toThrow("EACCES");
-      } finally {
-        // Reset mock state
-        mockUnlinkSyncPath = null;
-        mockUnlinkSyncError = null;
+        await repo.create(record);
+        expect.fail("Should have thrown Failed to acquire file lock");
+      } catch (error) {
+        expect((error as Error).message).toContain("Failed to acquire file lock");
       }
-    });
 
-    it("stale lock cleanup handles ENOENT gracefully when file disappears", async () => {
+      // The lock file must still exist — fail-closed means no automatic removal
+      expect(readdirSync(tempDir).filter((f) => f.endsWith(".lock"))).toHaveLength(1);
+
+      // Manual cleanup
+      unlinkSync(lockFile);
+    }, 60_000);
+
+    it("exhausted retries fail with actionable error", async () => {
       const repo = new FileRunRepository(tempDir);
       const record = createRunRecord();
 
-      // Create a stale lock file with a dead PID
+      // Create a canonical lock file manually via O_EXCL
       const lockFile = join(tempDir, `${record.runId}.lock`);
-      writeFileSync(lockFile, "99999", "utf8");
+      const fd = openSync(lockFile, "wx");
+      closeSync(fd);
 
-      // Set mtime to 60 seconds ago
-      const oldTime = new Date(Date.now() - 60_000);
-      utimesSync(lockFile, oldTime, oldTime);
+      // Attempt to create a record — must fail with actionable error
+      // containing the runId so the operator can identify which lock to clear.
+      try {
+        await repo.create(record);
+        expect.fail("Should have thrown Failed to acquire file lock");
+      } catch (error) {
+        const message = (error as Error).message;
+        expect(message).toContain("Failed to acquire file lock");
+        expect(message).toContain(record.runId);
+      }
 
-      // Remove the lock file before the operation — the cleanup
-      // should encounter ENOENT when trying to read/unlink and
-      // handle it gracefully (file disappeared concurrently).
+      // The lock file must still exist — no stale cleanup in fail-closed design
+      expect(readdirSync(tempDir).filter((f) => f.endsWith(".lock"))).toHaveLength(1);
+
+      // Manual cleanup
       unlinkSync(lockFile);
-
-      // This should succeed without throwing — ENOENT during
-      // cleanup is handled gracefully
-      await repo.create(record);
-
-      // Verify no lock files remain
-      const lockFiles = readdirSync(tempDir).filter((f) => f.endsWith(".lock"));
-      expect(lockFiles).toHaveLength(0);
-    });
+    }, 60_000);
   });
 });
