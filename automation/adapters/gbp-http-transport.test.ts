@@ -418,10 +418,21 @@ describe("SEC-002: baseUrl domain validation", () => {
       GBP_API_BASE_URL: "http://127.0.0.1:8080/v1",
     };
 
-    expect(() => createGbpTransport(env)).toThrow();
+    expect(() => createGbpTransport(env)).toThrow("Invalid baseUrl protocol");
   });
 
-  it("allows googleapis.com domains", () => {
+  it("allows mybusiness.googleapis.com with HTTPS", () => {
+    const env = {
+      GBP_OAUTH_CLIENT_ID: "env-client-id",
+      GBP_OAUTH_CLIENT_SECRET: "env-client-secret",
+      GBP_OAUTH_REFRESH_TOKEN: "env-refresh-token",
+      GBP_API_BASE_URL: "https://mybusiness.googleapis.com/v4",
+    };
+
+    expect(() => createGbpTransport(env)).not.toThrow();
+  });
+
+  it("allows mybusinessaccountmanagement.googleapis.com with HTTPS", () => {
     const env = {
       GBP_OAUTH_CLIENT_ID: "env-client-id",
       GBP_OAUTH_CLIENT_SECRET: "env-client-secret",
@@ -432,14 +443,47 @@ describe("SEC-002: baseUrl domain validation", () => {
     expect(() => createGbpTransport(env)).not.toThrow();
   });
 
-  it("rejects subdomain attacks on googleapis.com", () => {
+  it("rejects evil.googleapis.com (not in allowlist)", () => {
     const env = {
       GBP_OAUTH_CLIENT_ID: "env-client-id",
       GBP_OAUTH_CLIENT_SECRET: "env-client-secret",
       GBP_OAUTH_REFRESH_TOKEN: "env-refresh-token",
-      GBP_API_BASE_URL: "https://evil.googleapis.com.attacker.com/v1",
+      GBP_API_BASE_URL: "https://evil.googleapis.com/v4",
     };
 
     expect(() => createGbpTransport(env)).toThrow("Invalid baseUrl domain");
+  });
+
+  it("rejects bare googleapis.com (not in allowlist)", () => {
+    const env = {
+      GBP_OAUTH_CLIENT_ID: "env-client-id",
+      GBP_OAUTH_CLIENT_SECRET: "env-client-secret",
+      GBP_OAUTH_REFRESH_TOKEN: "env-refresh-token",
+      GBP_API_BASE_URL: "https://googleapis.com/v4",
+    };
+
+    expect(() => createGbpTransport(env)).toThrow("Invalid baseUrl domain");
+  });
+
+  it("rejects subdomain attack mybusiness.googleapis.com.attacker.com", () => {
+    const env = {
+      GBP_OAUTH_CLIENT_ID: "env-client-id",
+      GBP_OAUTH_CLIENT_SECRET: "env-client-secret",
+      GBP_OAUTH_REFRESH_TOKEN: "env-refresh-token",
+      GBP_API_BASE_URL: "https://mybusiness.googleapis.com.attacker.com/v4",
+    };
+
+    expect(() => createGbpTransport(env)).toThrow("Invalid baseUrl domain");
+  });
+
+  it("rejects HTTP protocol", () => {
+    const env = {
+      GBP_OAUTH_CLIENT_ID: "env-client-id",
+      GBP_OAUTH_CLIENT_SECRET: "env-client-secret",
+      GBP_OAUTH_REFRESH_TOKEN: "env-refresh-token",
+      GBP_API_BASE_URL: "http://mybusiness.googleapis.com/v4",
+    };
+
+    expect(() => createGbpTransport(env)).toThrow("Invalid baseUrl protocol");
   });
 });

@@ -310,3 +310,56 @@ Nenhum.
 - **Cobertura:** 90.48%
 - **Produção:** NO-GO (conforme spec.md)
 - **Próximo passo:** Revisão humana antes de promoção
+
+## PR #15 Final Security Remediation (HUMAN-012)
+
+### Finding
+
+| ID | Severidade | Descrição | Status |
+|---|---|---|---|
+| HUMAN-012 | HIGH | GBP baseUrl allowlist overly broad — `"googleapis.com"` permitia qualquer `*.googleapis.com` | RESOLVIDO |
+
+### Correção Aplicada
+
+#### HUMAN-012 — Allowlist restrita + HTTPS enforcement
+- Removido `"googleapis.com"` da allowlist (permitia qualquer subdomínio)
+- Allowlist agora usa match exato de hostname (não mais `endsWith`)
+- Adicionado `"oauth2.googleapis.com"` (usado para token fetch)
+- Adicionada validação de protocolo HTTPS (`parsed.protocol !== "https:"`)
+- Testes negativos: `evil.googleapis.com`, `googleapis.com`, subdomain attack, HTTP protocol
+- Teste positivo: `mybusiness.googleapis.com` com HTTPS
+
+### Allowlist Final
+```typescript
+private static readonly ALLOWED_DOMAINS = [
+  "mybusiness.googleapis.com",
+  "mybusinessaccountmanagement.googleapis.com",
+  "mybusinessbusinessinformation.googleapis.com",
+  "mybusinessverifications.googleapis.com",
+  "mybusinessnotifications.googleapis.com",
+  "mybusinesslodging.googleapis.com",
+  "mybusinesscalls.googleapis.com",
+  "mybusinessqanda.googleapis.com",
+  "oauth2.googleapis.com",
+];
+```
+
+### Quality Gates (HUMAN-012)
+| Gate | Status | Detalhes |
+|---|---|---|
+| format:check | PASS | Todos os arquivos formatados |
+| lint | PASS | Nenhum erro ESLint |
+| typecheck | PASS | Nenhum erro TypeScript |
+| test:coverage | PASS | 689 testes, 90.5% cobertura |
+| validate:data | PASS | 18 plataformas, 9 listings |
+| build | PASS | Build TypeScript completado |
+| git diff --check | PASS | Nenhum problema de whitespace |
+
+### Status Final PR #15 (Round 3 — HUMAN-012)
+- **BLOCKER:** 0
+- **HIGH:** 0 (HUMAN-012 corrigido)
+- **MEDIUM:** 0
+- **Testes:** 689 passando
+- **Cobertura:** 90.5%
+- **Produção:** NO-GO (conforme spec.md)
+- **Próximo passo:** Revisão humana antes de promoção
