@@ -15,7 +15,7 @@ const validConfig: GbpTransportConfig = {
   clientId: "test-client-id",
   clientSecret: "test-client-secret",
   refreshToken: "test-refresh-token",
-  baseUrl: "https://test-api.example.com/v1",
+  baseUrl: "https://mybusinessaccountmanagement.googleapis.com/v1",
 };
 
 const mockTokenResponse = {
@@ -66,6 +66,26 @@ describe("HttpGbpTransport", () => {
 
       const transport = new HttpGbpTransport(configWithoutBaseUrl);
       expect(transport).toBeDefined();
+    });
+
+    it("uses Account Management API as default base URL", async () => {
+      const configWithoutBaseUrl = {
+        clientId: validConfig.clientId,
+        clientSecret: validConfig.clientSecret,
+        refreshToken: validConfig.refreshToken,
+      };
+
+      mockFetch
+        .mockResolvedValueOnce(createMockResponse(200, mockTokenResponse))
+        .mockResolvedValueOnce(createMockResponse(200, { id: "123" }));
+
+      const transport = new HttpGbpTransport(configWithoutBaseUrl);
+      await transport.request({ method: "GET", path: "/accounts/acc1/locations/loc1/localPosts" });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://mybusinessaccountmanagement.googleapis.com/v1/accounts/acc1/locations/loc1/localPosts",
+        expect.anything(),
+      );
     });
   });
 
@@ -123,7 +143,7 @@ describe("HttpGbpTransport", () => {
 
       // Verify actual request
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://test-api.example.com/v1/localPosts",
+        "https://mybusinessaccountmanagement.googleapis.com/v1/localPosts",
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
@@ -150,7 +170,7 @@ describe("HttpGbpTransport", () => {
       await transport.request(request);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://test-api.example.com/v1/localPosts?pageSize=10&pageToken=next",
+        "https://mybusinessaccountmanagement.googleapis.com/v1/localPosts?pageSize=10&pageToken=next",
         expect.anything(),
       );
     });
@@ -325,7 +345,7 @@ describe("HttpGbpTransport", () => {
       await transport.request({ method: "GET", path: "/posts" });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://test-api.example.com/v1/posts",
+        "https://mybusinessaccountmanagement.googleapis.com/v1/posts",
         expect.anything(),
       );
     });
@@ -339,7 +359,7 @@ describe("HttpGbpTransport", () => {
       await transport.request({ method: "GET", path: "posts" });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://test-api.example.com/v1/posts",
+        "https://mybusinessaccountmanagement.googleapis.com/v1/posts",
         expect.anything(),
       );
     });
@@ -370,10 +390,56 @@ describe("createGbpTransport", () => {
       GBP_OAUTH_CLIENT_ID: "env-client-id",
       GBP_OAUTH_CLIENT_SECRET: "env-client-secret",
       GBP_OAUTH_REFRESH_TOKEN: "env-refresh-token",
-      GBP_API_BASE_URL: "https://custom-api.example.com/v2",
+      GBP_API_BASE_URL: "https://mybusinessbusinessinformation.googleapis.com/v2",
     };
 
     const transport = createGbpTransport(env);
     expect(transport).toBeDefined();
+  });
+});
+
+describe("SEC-002: baseUrl domain validation", () => {
+  it("rejects non-Google domains in baseUrl", () => {
+    const env = {
+      GBP_OAUTH_CLIENT_ID: "env-client-id",
+      GBP_OAUTH_CLIENT_SECRET: "env-client-secret",
+      GBP_OAUTH_REFRESH_TOKEN: "env-refresh-token",
+      GBP_API_BASE_URL: "https://evil.example.com/v1",
+    };
+
+    expect(() => createGbpTransport(env)).toThrow("Invalid baseUrl domain");
+  });
+
+  it("rejects IP addresses in baseUrl", () => {
+    const env = {
+      GBP_OAUTH_CLIENT_ID: "env-client-id",
+      GBP_OAUTH_CLIENT_SECRET: "env-client-secret",
+      GBP_OAUTH_REFRESH_TOKEN: "env-refresh-token",
+      GBP_API_BASE_URL: "http://127.0.0.1:8080/v1",
+    };
+
+    expect(() => createGbpTransport(env)).toThrow();
+  });
+
+  it("allows googleapis.com domains", () => {
+    const env = {
+      GBP_OAUTH_CLIENT_ID: "env-client-id",
+      GBP_OAUTH_CLIENT_SECRET: "env-client-secret",
+      GBP_OAUTH_REFRESH_TOKEN: "env-refresh-token",
+      GBP_API_BASE_URL: "https://mybusinessaccountmanagement.googleapis.com/v1",
+    };
+
+    expect(() => createGbpTransport(env)).not.toThrow();
+  });
+
+  it("rejects subdomain attacks on googleapis.com", () => {
+    const env = {
+      GBP_OAUTH_CLIENT_ID: "env-client-id",
+      GBP_OAUTH_CLIENT_SECRET: "env-client-secret",
+      GBP_OAUTH_REFRESH_TOKEN: "env-refresh-token",
+      GBP_API_BASE_URL: "https://evil.googleapis.com.attacker.com/v1",
+    };
+
+    expect(() => createGbpTransport(env)).toThrow("Invalid baseUrl domain");
   });
 });
