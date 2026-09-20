@@ -120,7 +120,6 @@ export class HttpGbpTransport implements GbpTransport {
    * Only Google APIs domains are permitted to prevent SSRF attacks.
    */
   private static readonly ALLOWED_DOMAINS = [
-    "googleapis.com",
     "mybusiness.googleapis.com",
     "mybusinessaccountmanagement.googleapis.com",
     "mybusinessbusinessinformation.googleapis.com",
@@ -129,6 +128,7 @@ export class HttpGbpTransport implements GbpTransport {
     "mybusinesslodging.googleapis.com",
     "mybusinesscalls.googleapis.com",
     "mybusinessqanda.googleapis.com",
+    "oauth2.googleapis.com",
   ];
 
   constructor(config: GbpTransportConfig) {
@@ -146,17 +146,24 @@ export class HttpGbpTransport implements GbpTransport {
       const parsed = new URL(url);
       const hostname = parsed.hostname.toLowerCase();
 
-      const isAllowed = HttpGbpTransport.ALLOWED_DOMAINS.some(
-        (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
-      );
+      // Enforce HTTPS protocol
+      if (parsed.protocol !== "https:") {
+        throw new Error(`Invalid baseUrl protocol: ${parsed.protocol}. Only HTTPS is allowed.`);
+      }
+
+      const isAllowed = HttpGbpTransport.ALLOWED_DOMAINS.some((domain) => hostname === domain);
 
       if (!isAllowed) {
         throw new Error(
-          `Invalid baseUrl domain: ${hostname}. Only Google APIs domains are allowed.`,
+          `Invalid baseUrl domain: ${hostname}. Only approved Google APIs domains are allowed.`,
         );
       }
     } catch (error) {
-      if (error instanceof Error && error.message.includes("Invalid baseUrl domain")) {
+      if (
+        error instanceof Error &&
+        (error.message.includes("Invalid baseUrl domain") ||
+          error.message.includes("Invalid baseUrl protocol"))
+      ) {
         throw error;
       }
       throw new Error(`Invalid baseUrl format: ${url}`);
