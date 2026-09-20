@@ -280,10 +280,12 @@ Nenhum.
 - Double-close de file descriptor corrigido com try/finally
 - Testes O_EXCL, stale lock cleanup, lock acquisition after release
 
-#### HUMAN-011 — GBP API endpoint correto
-- `DEFAULT_BASE_URL` alterado de `mybusinessbusinessinformation.googleapis.com` para `mybusinessaccountmanagement.googleapis.com`
-- Adicionada allowlist de domínios para SSRF prevention
-- Testes de endpoint correto e validação de domínio
+#### HUMAN-011 — GBP API endpoint correto (Round 2)
+- `DEFAULT_BASE_URL` alterado de `mybusinessaccountmanagement.googleapis.com/v1` para `mybusiness.googleapis.com/v4`
+- URL completa resolvida: `https://mybusiness.googleapis.com/v4/accounts/{accountId}/locations/{locationId}/localPosts`
+- `mybusiness.googleapis.com` adicionado à allowlist de domínios
+- JSDoc atualizado com documentação correta do My Business API v4
+- Testes atualizados para verificar URL completa com serviço e versão
 
 ### Quality Gates (PR #15 Remediation)
 | Gate | Status | Detalhes |
@@ -300,7 +302,7 @@ Nenhum.
 - **Security:** SEC-001 (TOCTOU) e SEC-002 (SSRF) classificados como OBRIGATÓRIO → corrigidos → CONFIRMED_RESOLVED
 - **Reviewer:** REV-001 (TOCTOU) e REV-002 (double-close) classificados como OBRIGATÓRIO → corrigidos → CONFIRMED_RESOLVED
 
-### Status Final PR #15
+### Status Final PR #15 (Round 2)
 - **BLOCKER:** 0
 - **HIGH:** 0
 - **MEDIUM:** 0 (todos corrigidos e confirmados como resolvidos)
