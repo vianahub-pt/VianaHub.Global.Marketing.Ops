@@ -133,9 +133,8 @@ export class GoogleBusinessProfileAdapter implements PlatformAdapter {
     }
 
     // Load config (validates all env vars present)
-    let _config;
     try {
-      _config = loadGbpConfig();
+      loadGbpConfig();
       this.state.configLoaded = true;
     } catch (error) {
       // SG-01: redactError() applied to all errors
@@ -371,9 +370,8 @@ export class GoogleBusinessProfileAdapter implements PlatformAdapter {
     }
 
     // Load config (validates all env vars present)
-    let _config;
     try {
-      _config = loadGbpConfig();
+      loadGbpConfig();
     } catch (error) {
       const errMessage = error instanceof Error ? error.message : String(error);
       throw new Error(`Config error: ${redactError({ message: errMessage }).message}`);

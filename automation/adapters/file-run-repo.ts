@@ -3,6 +3,7 @@ import {
   readFileSync,
   statSync,
   writeFileSync,
+  writeSync,
   renameSync,
   unlinkSync,
   readdirSync,
@@ -302,14 +303,25 @@ export class FileRunRepository implements RunRepository {
       let fd: number | undefined;
       try {
         fd = openSync(lockFile, "wx");
-        // Write PID to lock file for ownership verification (SEC-001)
-        try {
-          writeFileSync(lockFile, String(process.pid), "utf8");
-        } finally {
-          closeSync(fd);
-        }
+        // Write PID using the exclusively acquired fd (SEC-001).
+        // writeSync(fd, ...) writes to the already-open fd without
+        // reopening the pathname, preventing race on the path itself.
+        writeSync(fd, String(process.pid), null, "utf8");
+        closeSync(fd);
+        fd = undefined;
         return;
       } catch (error: unknown) {
+        // Ensure fd is closed exactly once on any error path.
+        // fd is set to undefined after closeSync to prevent double-close.
+        if (fd !== undefined) {
+          try {
+            closeSync(fd);
+          } catch {
+            /* close may fail if fd was already closed — ignore */
+          }
+          fd = undefined;
+        }
+
         if (isNodeError(error) && error.code === "EEXIST") {
           const delay = Math.min(baseDelayMs * 2 ** Math.min(attempt, 5), 300);
           const start = Date.now();
@@ -361,19 +373,39 @@ export class FileRunRepository implements RunRepository {
                 // Our own stale lock — safe to remove
                 unlinkSync(filePath);
               } else if (!isProcessRunning(lockPid)) {
-                // Owning process is dead — safe to remove stale lock
+                // Owning process is dead — safe to remove stale lock.
+                // TOCTOU residual: between isProcessRunning() and unlinkSync(),
+                // a new process may have replaced the lock file. The age check
+                // (> staleTtlMs) mitigates this: a freshly-created lock would
+                // not pass the age gate. On Windows, unlinkSync on a file held
+                // by another process throws EBUSY/EACCES, which we propagate
+                // below (only ENOENT is caught).
                 unlinkSync(filePath);
               }
               // else: process is still running — skip this lock
             } else {
               // Invalid PID content — cannot verify ownership, skip
             }
-          } catch {
-            // Cannot read lock file — skip to avoid removing active locks
+          } catch (readOrUnlinkError: unknown) {
+            // ENOENT from readFileSync or unlinkSync: file was removed
+            // between readdir and this operation — benign, skip.
+            // Any other error (EACCES, EPERM, EIO, etc.) is a real
+            // permission or I/O problem — propagate it.
+            if (isNodeError(readOrUnlinkError) && readOrUnlinkError.code === "ENOENT") {
+              // File already removed — safe to ignore
+            } else {
+              throw readOrUnlinkError;
+            }
           }
         }
-      } catch {
-        // Ignore: file was deleted between readdir and stat
+      } catch (outerError: unknown) {
+        // ENOENT: file was deleted between readdir and stat — benign.
+        // Any other error (EACCES, EPERM, EIO) is a real problem — propagate.
+        if (isNodeError(outerError) && outerError.code === "ENOENT") {
+          // File disappeared concurrently — safe to skip
+        } else {
+          throw outerError;
+        }
       }
     }
   }
@@ -387,8 +419,12 @@ export class FileRunRepository implements RunRepository {
   private releaseFileLock(runId: RunId): void {
     try {
       unlinkSync(this.lockPathFor(runId));
-    } catch {
-      // Ignore cleanup errors
+    } catch (error: unknown) {
+      // ENOENT: lock already released by another path — benign
+      // Any other error (EACCES, EPERM, EIO) is a real problem
+      if (isNodeError(error) && error.code !== "ENOENT") {
+        throw error;
+      }
     }
   }
 

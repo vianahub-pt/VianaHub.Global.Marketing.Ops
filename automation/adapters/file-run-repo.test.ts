@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   mkdtempSync,
   rmSync,
@@ -17,6 +17,38 @@ import type { IdempotencyKey, PayloadFingerprint, RunId } from "../domain/idempo
 import type { RunRecord } from "../domain/run-record.js";
 import { FileRunRepository } from "./file-run-repo.js";
 import { CorruptedRecordError, ConcurrencyConflictError } from "./persistence-errors.js";
+
+// ─── Module mock for lock/unlock testing ──────────────────────────────────────
+
+let mockUnlinkSyncPath: string | null = null;
+let mockUnlinkSyncError: (() => never) | null = null;
+let mockWriteSyncCapturePid: string | undefined;
+
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    unlinkSync: (...args: Parameters<typeof actual.unlinkSync>) => {
+      const path = args[0];
+      if (
+        mockUnlinkSyncPath !== null &&
+        typeof path === "string" &&
+        path === mockUnlinkSyncPath &&
+        mockUnlinkSyncError !== null
+      ) {
+        mockUnlinkSyncError();
+      }
+      return actual.unlinkSync(...args);
+    },
+    writeSync: (...args: Parameters<typeof actual.writeSync>) => {
+      // Capture PID written to lock files
+      if (typeof args[1] === "string") {
+        mockWriteSyncCapturePid = args[1];
+      }
+      return actual.writeSync(...args);
+    },
+  };
+});
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -792,6 +824,82 @@ describe("FileRunRepository", () => {
       // No .lock files should remain
       const files = readdirSync(tempDir);
       const lockFiles = files.filter((f) => f.endsWith(".lock"));
+      expect(lockFiles).toHaveLength(0);
+    });
+
+    it("acquireFileLock writes current process PID to lock file", async () => {
+      const repo = new FileRunRepository(tempDir);
+      const record = createRunRecord();
+
+      // Reset capture variable
+      mockWriteSyncCapturePid = undefined;
+
+      // create() calls acquireFileLock internally, which writes the PID
+      // via writeSync(fd, ...). Our vi.mock intercepts writeSync and
+      // captures the string argument.
+      await repo.create(record);
+
+      // The captured value should be the current process PID
+      expect(mockWriteSyncCapturePid).toBe(String(process.pid));
+    });
+
+    it("stale lock cleanup propagates EACCES from unlinkSync", async () => {
+      const repo = new FileRunRepository(tempDir);
+      const record = createRunRecord();
+
+      // Create a stale lock file with a dead PID
+      const lockFile = join(tempDir, `${record.runId}.lock`);
+      writeFileSync(lockFile, "99999", "utf8");
+
+      // Set mtime to 60 seconds ago so it's considered stale
+      const oldTime = new Date(Date.now() - 60_000);
+      utimesSync(lockFile, oldTime, oldTime);
+
+      // Configure mock to throw EACCES when unlinkSync is called
+      // on our lock file
+      mockUnlinkSyncPath = lockFile;
+      mockUnlinkSyncError = () => {
+        const err = new Error("EACCES: permission denied") as Error & {
+          code: string;
+        };
+        err.code = "EACCES";
+        throw err;
+      };
+
+      try {
+        // cleanupStaleLocks runs during create() and should propagate
+        // the EACCES error (not swallow it)
+        await expect(repo.create(record)).rejects.toThrow("EACCES");
+      } finally {
+        // Reset mock state
+        mockUnlinkSyncPath = null;
+        mockUnlinkSyncError = null;
+      }
+    });
+
+    it("stale lock cleanup handles ENOENT gracefully when file disappears", async () => {
+      const repo = new FileRunRepository(tempDir);
+      const record = createRunRecord();
+
+      // Create a stale lock file with a dead PID
+      const lockFile = join(tempDir, `${record.runId}.lock`);
+      writeFileSync(lockFile, "99999", "utf8");
+
+      // Set mtime to 60 seconds ago
+      const oldTime = new Date(Date.now() - 60_000);
+      utimesSync(lockFile, oldTime, oldTime);
+
+      // Remove the lock file before the operation — the cleanup
+      // should encounter ENOENT when trying to read/unlink and
+      // handle it gracefully (file disappeared concurrently).
+      unlinkSync(lockFile);
+
+      // This should succeed without throwing — ENOENT during
+      // cleanup is handled gracefully
+      await repo.create(record);
+
+      // Verify no lock files remain
+      const lockFiles = readdirSync(tempDir).filter((f) => f.endsWith(".lock"));
       expect(lockFiles).toHaveLength(0);
     });
   });
