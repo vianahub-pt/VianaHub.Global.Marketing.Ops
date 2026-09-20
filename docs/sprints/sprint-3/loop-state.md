@@ -261,4 +261,50 @@ Nenhum.
 
 ### Status da Aplicação
 - **Produção:** NO-GO (conforme spec.md)
+
+## PR #15 Human Review Remediation (HUMAN-010..011)
+
+### Findings da Revisão Humana PR #15
+
+| ID | Severidade | Descrição | Status |
+|---|---|---|---|
+| HUMAN-010 | BLOCKER | File-system locking não é cross-platform safe (renameSync em POSIX substitui target) | RESOLVIDO |
+| HUMAN-011 | BLOCKER | GBP Local Posts usa API service/base URL errado (Business Information vs Account Management) | RESOLVIDO |
+
+### Correções Aplicadas
+
+#### HUMAN-010 — File locking cross-platform safe
+- `acquireFileLock()` refatorado de `renameSync(tempLock, lockFile)` para `openSync(lockFile, "wx")` (O_EXCL)
+- Adicionado `isProcessRunning()` para verificação de PID em stale lock cleanup
+- Adicionado `cleanupStaleLocks()` com verificação de ownership via PID
+- Double-close de file descriptor corrigido com try/finally
+- Testes O_EXCL, stale lock cleanup, lock acquisition after release
+
+#### HUMAN-011 — GBP API endpoint correto
+- `DEFAULT_BASE_URL` alterado de `mybusinessbusinessinformation.googleapis.com` para `mybusinessaccountmanagement.googleapis.com`
+- Adicionada allowlist de domínios para SSRF prevention
+- Testes de endpoint correto e validação de domínio
+
+### Quality Gates (PR #15 Remediation)
+| Gate | Status | Detalhes |
+|---|---|---|
+| format:check | PASS | Todos os arquivos formatados |
+| lint | PASS | Nenhum erro ESLint |
+| typecheck | PASS | Nenhum erro TypeScript |
+| test:coverage | PASS | 685 testes, 90.48% cobertura |
+| validate:data | PASS | 18 plataformas, 9 listings |
+| build | PASS | Build TypeScript completado |
+| git diff --check | PASS | Nenhum problema de whitespace |
+
+### Reviews (PR #15 Remediation)
+- **Security:** SEC-001 (TOCTOU) e SEC-002 (SSRF) classificados como OBRIGATÓRIO → corrigidos → CONFIRMED_RESOLVED
+- **Reviewer:** REV-001 (TOCTOU) e REV-002 (double-close) classificados como OBRIGATÓRIO → corrigidos → CONFIRMED_RESOLVED
+
+### Status Final PR #15
+- **BLOCKER:** 0
+- **HIGH:** 0
+- **MEDIUM:** 0 (todos corrigidos e confirmados como resolvidos)
+- **Testes:** 685 passando
+- **Cobertura:** 90.48%
+- **Produção:** NO-GO (conforme spec.md)
 - **Próximo passo:** Revisão humana antes de promoção

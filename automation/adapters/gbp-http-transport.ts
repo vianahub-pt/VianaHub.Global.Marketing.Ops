@@ -86,7 +86,15 @@ type OAuthTokenResponse = z.infer<typeof oauthTokenResponseSchema>;
 
 // ─── HttpGbpTransport Implementation ─────────────────────────────────────────
 
-const DEFAULT_BASE_URL = "https://mybusinessbusinessinformation.googleapis.com/v1";
+/**
+ * Default base URL for Google Business Profile Account Management API.
+ *
+ * The `accounts.locations.localPosts.create` operation belongs to the
+ * **Account Management** service, not the Business Information API.
+ *
+ * @see https://developers.google.com/my-business/reference/accountmanagement/rest
+ */
+const DEFAULT_BASE_URL = "https://mybusinessaccountmanagement.googleapis.com/v1";
 
 /**
  * HTTP transport implementation for Google Business Profile API.
@@ -107,9 +115,51 @@ export class HttpGbpTransport implements GbpTransport {
   private tokenCache: TokenCache | null = null;
   private baseUrl: string;
 
+  /**
+   * Allowed domains for baseUrl validation (SEC-002).
+   * Only Google APIs domains are permitted to prevent SSRF attacks.
+   */
+  private static readonly ALLOWED_DOMAINS = [
+    "googleapis.com",
+    "mybusinessaccountmanagement.googleapis.com",
+    "mybusinessbusinessinformation.googleapis.com",
+    "mybusinessverifications.googleapis.com",
+    "mybusinessnotifications.googleapis.com",
+    "mybusinesslodging.googleapis.com",
+    "mybusinesscalls.googleapis.com",
+    "mybusinessqanda.googleapis.com",
+  ];
+
   constructor(config: GbpTransportConfig) {
     this.config = config;
     this.baseUrl = config.baseUrl ?? DEFAULT_BASE_URL;
+    this.validateBaseUrl(this.baseUrl);
+  }
+
+  /**
+   * Validates that the baseUrl is from an allowed domain (SEC-002).
+   * Prevents SSRF by restricting to Google APIs domains only.
+   */
+  private validateBaseUrl(url: string): void {
+    try {
+      const parsed = new URL(url);
+      const hostname = parsed.hostname.toLowerCase();
+
+      const isAllowed = HttpGbpTransport.ALLOWED_DOMAINS.some(
+        (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
+      );
+
+      if (!isAllowed) {
+        throw new Error(
+          `Invalid baseUrl domain: ${hostname}. Only Google APIs domains are allowed.`,
+        );
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Invalid baseUrl domain")) {
+        throw error;
+      }
+      throw new Error(`Invalid baseUrl format: ${url}`);
+    }
   }
 
   /**

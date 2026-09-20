@@ -1,5 +1,15 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  rmSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+  openSync,
+  closeSync,
+  unlinkSync,
+  utimesSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -682,6 +692,107 @@ describe("FileRunRepository", () => {
       const content = readFileSync(join(tempDir, `${record.runId}.json`), "utf8");
       const parsed = JSON.parse(content);
       expect(parsed.revision).toBe(3);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HUMAN-010 — File locking cross-platform safe (O_EXCL)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  describe("file locking cross-platform safe (HUMAN-010)", () => {
+    it("O_EXCL behavior: second lock acquisition on same runId fails with EEXIST", async () => {
+      const repo = new FileRunRepository(tempDir);
+      const record = createRunRecord();
+
+      await repo.create(record);
+
+      // The repo uses file locking internally. To test O_EXCL directly,
+      // we create a lock file manually and verify openSync with "wx" fails.
+      const lockFile = join(tempDir, `${record.runId}.lock`);
+
+      // First lock creation should succeed
+      const fd1 = openSync(lockFile, "wx");
+      closeSync(fd1);
+
+      // Second lock creation should fail with EEXIST
+      expect(() => {
+        const fd2 = openSync(lockFile, "wx");
+        closeSync(fd2);
+      }).toThrow(/EEXIST/);
+
+      // Cleanup
+      unlinkSync(lockFile);
+    });
+
+    it("lock cleanup: no .lock files remain after repository operations", async () => {
+      const repo = new FileRunRepository(tempDir);
+      const record = createRunRecord();
+
+      // Perform multiple operations
+      await repo.create(record);
+      const updated = { ...record, state: "running" as const };
+      await repo.update(updated);
+      await repo.getById(record.runId);
+      await repo.list();
+
+      // No .lock files should remain
+      const files = readdirSync(tempDir);
+      const lockFiles = files.filter((f) => f.endsWith(".lock"));
+      expect(lockFiles).toHaveLength(0);
+    });
+
+    it("stale lock cleanup: old lock files are removed before acquisition", async () => {
+      const repo = new FileRunRepository(tempDir);
+      const record = createRunRecord();
+
+      // Create a stale lock file with PID format (as used by acquireFileLock)
+      const lockFile = join(tempDir, `${record.runId}.lock`);
+      writeFileSync(lockFile, "99999", "utf8");
+
+      // Set mtime to 60 seconds ago so cleanupStaleLocks considers it stale
+      const oldTime = new Date(Date.now() - 60_000);
+      utimesSync(lockFile, oldTime, oldTime);
+
+      // Verify lock file exists
+      expect(readdirSync(tempDir).filter((f) => f.endsWith(".lock"))).toHaveLength(1);
+
+      // Perform an operation — stale locks older than 30s should be cleaned up
+      await repo.create(record);
+
+      // No .lock files should remain after operation
+      const files = readdirSync(tempDir);
+      const lockFiles = files.filter((f) => f.endsWith(".lock"));
+      expect(lockFiles).toHaveLength(0);
+    });
+
+    it("lock acquisition after release: lock can be re-acquired after release", async () => {
+      const repo = new FileRunRepository(tempDir);
+      const record = createRunRecord();
+
+      // Create and update — both operations acquire and release locks
+      await repo.create(record);
+
+      const updated1 = { ...record, state: "running" as const };
+      await repo.update(updated1);
+
+      const updated2 = { ...record, state: "succeeded" as const, attempt: 1 };
+      await repo.update(updated2);
+
+      // Verify final state — lock was successfully acquired for each update
+      const result = await repo.getById(record.runId);
+      expect(result).not.toBeNull();
+      expect(result!.state).toBe("succeeded");
+      expect(result!.attempt).toBe(1);
+
+      // Verify revision was incremented correctly
+      const content = readFileSync(join(tempDir, `${record.runId}.json`), "utf8");
+      const parsed = JSON.parse(content);
+      expect(parsed.revision).toBe(3);
+
+      // No .lock files should remain
+      const files = readdirSync(tempDir);
+      const lockFiles = files.filter((f) => f.endsWith(".lock"));
+      expect(lockFiles).toHaveLength(0);
     });
   });
 });
