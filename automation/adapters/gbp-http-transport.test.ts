@@ -15,7 +15,7 @@ const validConfig: GbpTransportConfig = {
   clientId: "test-client-id",
   clientSecret: "test-client-secret",
   refreshToken: "test-refresh-token",
-  baseUrl: "https://mybusinessaccountmanagement.googleapis.com/v1",
+  baseUrl: "https://mybusiness.googleapis.com/v4",
 };
 
 const mockTokenResponse = {
@@ -68,7 +68,7 @@ describe("HttpGbpTransport", () => {
       expect(transport).toBeDefined();
     });
 
-    it("uses Account Management API as default base URL", async () => {
+    it("uses My Business API v4 as default base URL for Local Posts", async () => {
       const configWithoutBaseUrl = {
         clientId: validConfig.clientId,
         clientSecret: validConfig.clientSecret,
@@ -83,7 +83,7 @@ describe("HttpGbpTransport", () => {
       await transport.request({ method: "GET", path: "/accounts/acc1/locations/loc1/localPosts" });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://mybusinessaccountmanagement.googleapis.com/v1/accounts/acc1/locations/loc1/localPosts",
+        "https://mybusiness.googleapis.com/v4/accounts/acc1/locations/loc1/localPosts",
         expect.anything(),
       );
     });
@@ -143,7 +143,7 @@ describe("HttpGbpTransport", () => {
 
       // Verify actual request
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://mybusinessaccountmanagement.googleapis.com/v1/localPosts",
+        "https://mybusiness.googleapis.com/v4/localPosts",
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
@@ -170,7 +170,7 @@ describe("HttpGbpTransport", () => {
       await transport.request(request);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://mybusinessaccountmanagement.googleapis.com/v1/localPosts?pageSize=10&pageToken=next",
+        "https://mybusiness.googleapis.com/v4/localPosts?pageSize=10&pageToken=next",
         expect.anything(),
       );
     });
@@ -345,7 +345,7 @@ describe("HttpGbpTransport", () => {
       await transport.request({ method: "GET", path: "/posts" });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://mybusinessaccountmanagement.googleapis.com/v1/posts",
+        "https://mybusiness.googleapis.com/v4/posts",
         expect.anything(),
       );
     });
@@ -359,7 +359,7 @@ describe("HttpGbpTransport", () => {
       await transport.request({ method: "GET", path: "posts" });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://mybusinessaccountmanagement.googleapis.com/v1/posts",
+        "https://mybusiness.googleapis.com/v4/posts",
         expect.anything(),
       );
     });

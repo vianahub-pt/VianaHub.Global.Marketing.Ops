@@ -87,14 +87,14 @@ type OAuthTokenResponse = z.infer<typeof oauthTokenResponseSchema>;
 // ─── HttpGbpTransport Implementation ─────────────────────────────────────────
 
 /**
- * Default base URL for Google Business Profile Account Management API.
+ * Default base URL for Google Business Profile Local Posts API.
  *
- * The `accounts.locations.localPosts.create` operation belongs to the
- * **Account Management** service, not the Business Information API.
+ * The `accounts.locations.localPosts.create` operation uses the
+ * My Business API service at `mybusiness.googleapis.com/v4`.
  *
- * @see https://developers.google.com/my-business/reference/accountmanagement/rest
+ * @see https://developers.google.com/my-business/reference/rest/v4/accounts.locations.localPosts/create
  */
-const DEFAULT_BASE_URL = "https://mybusinessaccountmanagement.googleapis.com/v1";
+const DEFAULT_BASE_URL = "https://mybusiness.googleapis.com/v4";
 
 /**
  * HTTP transport implementation for Google Business Profile API.
@@ -121,6 +121,7 @@ export class HttpGbpTransport implements GbpTransport {
    */
   private static readonly ALLOWED_DOMAINS = [
     "googleapis.com",
+    "mybusiness.googleapis.com",
     "mybusinessaccountmanagement.googleapis.com",
     "mybusinessbusinessinformation.googleapis.com",
     "mybusinessverifications.googleapis.com",
