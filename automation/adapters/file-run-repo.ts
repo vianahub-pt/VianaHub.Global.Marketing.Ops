@@ -93,25 +93,6 @@ function isNodeError(error: unknown): error is { code: string } {
   );
 }
 
-/**
- * Checks if a process with the given PID is still running.
- * Uses process.kill(pid, 0) which sends no signal but checks existence.
- * Returns true if the process exists, false otherwise.
- */
-function isProcessRunning(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    // ESRCH: process does not exist
-    // EPERM: process exists but we don't have permission (still counts as running)
-    if (isNodeError(error) && error.code === "EPERM") {
-      return true;
-    }
-    return false;
-  }
-}
-
 // ─── FileRunRepository ───────────────────────────────────────────────────────
 
 const FILE_EXTENSION = ".json";
@@ -280,21 +261,20 @@ export class FileRunRepository implements RunRepository {
   /**
    * Acquires an exclusive file lock for the given runId using O_EXCL flag.
    *
-   * Uses `openSync` with `"wx"` flag (O_EXCL) which atomically creates the
-   * file only if it does not already exist. This is cross-platform safe:
-   *  - On POSIX: O_EXCL ensures atomic exclusive creation
-   *  - On Windows: O_EXCL provides mutual exclusion
+   * Lock acquisition is **FAIL-CLOSED**:
+   *  - Uses `openSync` with `"wx"` flag (O_EXCL) which atomically creates
+   *    the file only if it does not already exist.
+   *  - Never deletes, renames, or replaces an existing lock file.
+   *  - If a process crashes while holding the lock, the file persists and
+   *    requires manual intervention to remove.
+   *  - Retries with exponential backoff (base 10 ms, max 300 ms) up to
+   *    100 attempts for cross-process contention.
    *
-   * Includes stale lock cleanup (files older than 30 seconds) to prevent
-   * deadlocks from crashed processes.
-   *
-   * Uses retry with exponential backoff for cross-process contention.
+   * On POSIX: O_EXCL ensures atomic exclusive creation.
+   * On Windows: O_EXCL provides mutual exclusion.
    */
   private acquireFileLock(runId: RunId): void {
     const lockFile = this.lockPathFor(runId);
-
-    // Clean up stale locks (older than 30 seconds)
-    this.cleanupStaleLocks(30_000);
 
     const maxRetries = 100;
     const baseDelayMs = 10;
@@ -339,82 +319,22 @@ export class FileRunRepository implements RunRepository {
   }
 
   /**
-   * Removes stale lock files older than the specified TTL.
-   *
-   * Called before each lock acquisition to prevent deadlocks from
-   * processes that crashed while holding a lock.
-   *
-   * Uses PID verification to prevent TOCTOU race conditions (SEC-001/REV-001):
-   * reads the PID from the lock file and checks if the process is still alive.
-   * Only removes the lock if the owning process is confirmed dead.
-   */
-  private cleanupStaleLocks(staleTtlMs: number): void {
-    if (!this.directoryExists()) {
-      return;
-    }
-
-    const files = readdirSync(this.storageDir).filter((f) => f.endsWith(".lock"));
-    const now = Date.now();
-
-    for (const file of files) {
-      const filePath = join(this.storageDir, file);
-      try {
-        const stat = statSync(filePath);
-        const age = now - stat.mtimeMs;
-        if (age > staleTtlMs) {
-          // Verify lock ownership before removal (SEC-001)
-          try {
-            const content = readFileSync(filePath, "utf8");
-            const lockPid = parseInt(content.trim(), 10);
-
-            if (!isNaN(lockPid)) {
-              // Check if the lock belongs to the current process
-              if (lockPid === process.pid) {
-                // Our own stale lock — safe to remove
-                unlinkSync(filePath);
-              } else if (!isProcessRunning(lockPid)) {
-                // Owning process is dead — safe to remove stale lock.
-                // TOCTOU residual: between isProcessRunning() and unlinkSync(),
-                // a new process may have replaced the lock file. The age check
-                // (> staleTtlMs) mitigates this: a freshly-created lock would
-                // not pass the age gate. On Windows, unlinkSync on a file held
-                // by another process throws EBUSY/EACCES, which we propagate
-                // below (only ENOENT is caught).
-                unlinkSync(filePath);
-              }
-              // else: process is still running — skip this lock
-            } else {
-              // Invalid PID content — cannot verify ownership, skip
-            }
-          } catch (readOrUnlinkError: unknown) {
-            // ENOENT from readFileSync or unlinkSync: file was removed
-            // between readdir and this operation — benign, skip.
-            // Any other error (EACCES, EPERM, EIO, etc.) is a real
-            // permission or I/O problem — propagate it.
-            if (isNodeError(readOrUnlinkError) && readOrUnlinkError.code === "ENOENT") {
-              // File already removed — safe to ignore
-            } else {
-              throw readOrUnlinkError;
-            }
-          }
-        }
-      } catch (outerError: unknown) {
-        // ENOENT: file was deleted between readdir and stat — benign.
-        // Any other error (EACCES, EPERM, EIO) is a real problem — propagate.
-        if (isNodeError(outerError) && outerError.code === "ENOENT") {
-          // File disappeared concurrently — safe to skip
-        } else {
-          throw outerError;
-        }
-      }
-    }
-  }
-
-  /**
    * Releases the exclusive file lock for the given runId.
    *
-   * Removes the lock file created by `acquireFileLock`.
-   * Errors during cleanup are silently ignored.
+   * Removes the lock file created by `acquireFileLock` in the same
+   * `withRunLock` invocation. The removal is safe because the lock was
+   * created exclusively via `openSync(lockFile, "wx")`.
+   *
+   * **Limitation:** Deletion is by pathname, not by fd. If an external
+   * actor manually deletes and re-creates the lock between acquisition
+   * and release, this method would delete the replacement. This scenario
+   * is outside the normal operational model.
+   *
+   * No automatic stale-lock cleanup exists. If a process crashes while
+   * holding a lock, the file persists and requires manual intervention.
+   *
+   * Errors are silently ignored only for `ENOENT` (lock already released).
+   * All other errors (`EACCES`, `EPERM`, `EIO`) are propagated.
    */
   private releaseFileLock(runId: RunId): void {
     try {
