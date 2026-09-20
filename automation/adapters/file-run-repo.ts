@@ -6,6 +6,8 @@ import {
   renameSync,
   unlinkSync,
   readdirSync,
+  openSync,
+  closeSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { z } from "zod";
@@ -78,6 +80,36 @@ const fileStoredRunRecordSchema = z
       .strict(),
   })
   .strict();
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function isNodeError(error: unknown): error is { code: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof (error as Record<string, unknown>).code === "string"
+  );
+}
+
+/**
+ * Checks if a process with the given PID is still running.
+ * Uses process.kill(pid, 0) which sends no signal but checks existence.
+ * Returns true if the process exists, false otherwise.
+ */
+function isProcessRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // ESRCH: process does not exist
+    // EPERM: process exists but we don't have permission (still counts as running)
+    if (isNodeError(error) && error.code === "EPERM") {
+      return true;
+    }
+    return false;
+  }
+}
 
 // ─── FileRunRepository ───────────────────────────────────────────────────────
 
@@ -245,49 +277,112 @@ export class FileRunRepository implements RunRepository {
   }
 
   /**
-   * Acquires an exclusive file lock for the given runId using atomic rename.
+   * Acquires an exclusive file lock for the given runId using O_EXCL flag.
    *
-   * The lock file is first written to a temporary path, then renamed to the
-   * final lock path via `renameSync`. On POSIX, `renameSync` is atomic: if
-   * the target already exists, it is replaced atomically. On Windows, the
-   * rename fails if the target exists, which provides mutual exclusion.
+   * Uses `openSync` with `"wx"` flag (O_EXCL) which atomically creates the
+   * file only if it does not already exist. This is cross-platform safe:
+   *  - On POSIX: O_EXCL ensures atomic exclusive creation
+   *  - On Windows: O_EXCL provides mutual exclusion
+   *
+   * Includes stale lock cleanup (files older than 30 seconds) to prevent
+   * deadlocks from crashed processes.
    *
    * Uses retry with exponential backoff for cross-process contention.
    */
   private acquireFileLock(runId: RunId): void {
     const lockFile = this.lockPathFor(runId);
-    const tempLock = `${lockFile}.tmp.${process.pid}.${Date.now()}`;
 
-    writeFileSync(tempLock, JSON.stringify({ pid: process.pid, at: Date.now() }), "utf8");
+    // Clean up stale locks (older than 30 seconds)
+    this.cleanupStaleLocks(30_000);
 
     const maxRetries = 100;
     const baseDelayMs = 10;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
+      let fd: number | undefined;
       try {
-        renameSync(tempLock, lockFile);
-        return; // Lock acquired
-      } catch {
-        // Lock is held — wait with exponential backoff
-        const delay = Math.min(baseDelayMs * 2 ** Math.min(attempt, 5), 300);
-        const start = Date.now();
-        while (Date.now() - start < delay) {
-          // sync busy-wait is acceptable for cross-process file lock contention
+        fd = openSync(lockFile, "wx");
+        // Write PID to lock file for ownership verification (SEC-001)
+        try {
+          writeFileSync(lockFile, String(process.pid), "utf8");
+        } finally {
+          closeSync(fd);
         }
+        return;
+      } catch (error: unknown) {
+        if (isNodeError(error) && error.code === "EEXIST") {
+          const delay = Math.min(baseDelayMs * 2 ** Math.min(attempt, 5), 300);
+          const start = Date.now();
+          while (Date.now() - start < delay) {
+            /* busy-wait */
+          }
+          continue;
+        }
+
+        throw error;
       }
     }
 
-    // Cleanup temp file on failure
-    try {
-      unlinkSync(tempLock);
-    } catch {
-      // ignore cleanup errors
-    }
     throw new Error(`Failed to acquire file lock for runId ${runId} after ${maxRetries} retries`);
   }
 
   /**
+   * Removes stale lock files older than the specified TTL.
+   *
+   * Called before each lock acquisition to prevent deadlocks from
+   * processes that crashed while holding a lock.
+   *
+   * Uses PID verification to prevent TOCTOU race conditions (SEC-001/REV-001):
+   * reads the PID from the lock file and checks if the process is still alive.
+   * Only removes the lock if the owning process is confirmed dead.
+   */
+  private cleanupStaleLocks(staleTtlMs: number): void {
+    if (!this.directoryExists()) {
+      return;
+    }
+
+    const files = readdirSync(this.storageDir).filter((f) => f.endsWith(".lock"));
+    const now = Date.now();
+
+    for (const file of files) {
+      const filePath = join(this.storageDir, file);
+      try {
+        const stat = statSync(filePath);
+        const age = now - stat.mtimeMs;
+        if (age > staleTtlMs) {
+          // Verify lock ownership before removal (SEC-001)
+          try {
+            const content = readFileSync(filePath, "utf8");
+            const lockPid = parseInt(content.trim(), 10);
+
+            if (!isNaN(lockPid)) {
+              // Check if the lock belongs to the current process
+              if (lockPid === process.pid) {
+                // Our own stale lock — safe to remove
+                unlinkSync(filePath);
+              } else if (!isProcessRunning(lockPid)) {
+                // Owning process is dead — safe to remove stale lock
+                unlinkSync(filePath);
+              }
+              // else: process is still running — skip this lock
+            } else {
+              // Invalid PID content — cannot verify ownership, skip
+            }
+          } catch {
+            // Cannot read lock file — skip to avoid removing active locks
+          }
+        }
+      } catch {
+        // Ignore: file was deleted between readdir and stat
+      }
+    }
+  }
+
+  /**
    * Releases the exclusive file lock for the given runId.
+   *
+   * Removes the lock file created by `acquireFileLock`.
+   * Errors during cleanup are silently ignored.
    */
   private releaseFileLock(runId: RunId): void {
     try {
@@ -302,7 +397,7 @@ export class FileRunRepository implements RunRepository {
    *
    * Combines two layers of serialization:
    *  1. In-process Promise chain (efficient, no busy-waiting)
-   *  2. File lock via atomic rename (cross-process safety)
+   *  2. File lock via O_EXCL atomic creation (cross-process, cross-platform safety)
    *
    * The existing revision-based optimistic concurrency check is preserved
    * as a final safety net.
