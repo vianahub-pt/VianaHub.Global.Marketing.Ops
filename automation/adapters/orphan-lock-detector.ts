@@ -9,7 +9,7 @@
  * modification of lock files.
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, openSync, fstatSync, readFileSync, closeSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { safeResolve } from "../common/path-security.js";
@@ -89,29 +89,59 @@ export function detectPotentialOrphanLocks(
   const locks: OrphanLockInfo[] = [];
 
   for (const filename of lockFiles) {
+    let fullPath: string;
     try {
-      const fullPath = safeResolve(resolvedDir, filename);
-      const stats = statSync(fullPath);
-      const apparentAgeMs = now.getTime() - stats.mtime.getTime();
-
-      let contents = "";
-      try {
-        contents = readFileSync(fullPath, "utf8").trim();
-      } catch {
-        contents = "<unreadable>";
-      }
-
-      locks.push({
-        filename,
-        fullPath,
-        apparentAgeMs,
-        contents,
-        appearsStale: apparentAgeMs > staleThresholdMs,
-      });
+      fullPath = safeResolve(resolvedDir, filename);
     } catch {
-      // Skip files we can't stat (defensive)
+      // Path rejected by path-security (e.g. URL-encoded name) — skip, as before
       continue;
     }
+
+    let contents = "";
+    let mtimeMs: number | undefined;
+    let fd: number | undefined;
+    try {
+      // Single-open: stats and contents both come from the same handle,
+      // removing the stat(path)-then-read(path) TOCTOU window.
+      fd = openSync(fullPath, "r");
+      const stats = fstatSync(fd);
+      mtimeMs = stats.mtime.getTime();
+      contents = readFileSync(fd, "utf8").trim();
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      if (code === "ENOENT") {
+        // File disappeared between listing and open — skip
+        continue;
+      }
+      // Unreadable (EACCES/EPERM/...) or other read failure:
+      // stat after the failed open for the age diagnostic only, with no
+      // subsequent read of the path, so the path is never used after check.
+      try {
+        const stats = statSync(fullPath);
+        mtimeMs = stats.mtime.getTime();
+      } catch {
+        // Not even stat-able — skip defensively
+        continue;
+      }
+      contents = "<unreadable>";
+    } finally {
+      if (fd !== undefined) {
+        closeSync(fd);
+      }
+    }
+
+    if (mtimeMs === undefined) {
+      continue;
+    }
+
+    const apparentAgeMs = now.getTime() - mtimeMs;
+    locks.push({
+      filename,
+      fullPath,
+      apparentAgeMs,
+      contents,
+      appearsStale: apparentAgeMs > staleThresholdMs,
+    });
   }
 
   return {
