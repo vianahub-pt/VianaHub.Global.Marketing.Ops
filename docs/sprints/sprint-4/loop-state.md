@@ -892,3 +892,88 @@
 **Motivo:** Remediação TEST-ONLY do defeito de test-harness concluída com sucesso. Todos os quality gates passando, zero unhandled rejections, reviews aprovadas com 0 BLOCKER/HIGH/MEDIUM.
 **Cobertura:** 91.76% Stmts | 86.85% Branch | 97.46% Funcs | 91.76% Lines
 **Testes:** 1.068/1.068 passed, 0 unhandled rejections
+
+## Post-PR CodeQL Remediation (2026-09-23)
+
+**Status:** `READY_FOR_HUMAN_REVIEW`
+**Data:** 2026-09-23
+**Escopo:** Remediação dos 11 alerts HIGH do CodeQL no PR #26 (commit base `79bf2262b3c223a6b1d9a3a55a3448064b5babc6`)
+**SHA-base:** 79bf2262b3c223a6b1d9a3a55a3448064b5babc6
+**Branch:** feature/sprint-4-operational-hardening
+
+### Alerts CodeQL Remediados
+
+| Grupo | Alert | Arquivo | Causa raiz | Correção |
+|-------|-------|---------|------------|----------|
+| A | 10× HIGH "Insecure temporary file" | `automation/adapters/orphan-lock-detector.test.ts` | `beforeEach` criava diretório temporário previsível em `tmpdir()` com `Date.now()`+`Math.random()`+`mkdirSync` — 10 `writeFileSync` sob `testDir` correspondiam aos 10 alerts | `mkdtempSync(join(tmpdir(), "orphan-lock-test-"))` — criação atômica com sufixo aleatório do SO; `mkdirSync` removido do import; `rmSync` no `afterEach` mantido; nenhum teste/asserção alterado |
+| B | 1× HIGH "Potential file system race condition" (TOCTOU) | `automation/adapters/orphan-lock-detector.ts` | `statSync(fullPath)` (check) seguido de `readFileSync(fullPath)` (use) sobre o mesmo path — janela de corrida | Redesign **single-open**: `openSync("r")` → `fstatSync(fd)` → `readFileSync(fd)` → `closeSync(fd)` em `finally`; fallback EACCES → `statSync` só para mtime + `contents="<unreadable>"`; ENOENT → skip; `safeResolve` com try/catch skip preservando comportamento anterior; tipo estrutural `{ code?: string }` em vez de `NodeJS.ErrnoException` (corrige lint `no-undef`) |
+
+### Ocorrências Equivalentes Verificadas (sprint-architect)
+
+- 15 outros testes com `tmpdir()` já usam `mkdtempSync` — NÃO aplicável (seguros)
+- `writeAtomic` temps ficam em `.data/` (não em `os.tmpdir()`) — NÃO aplicável
+- `fileExists`→`readStored` interprocedural — CodeQL não flagga — NÃO aplicável
+- **`validate-data.ts` L66→L73:** `existsSync`→`readFileSync` same-function — FORA do escopo dos 11 alerts, classificado como **recomendação pendente** (próximo alert provável); edição bloqueada pelo guardrail de escrita do sprint-implementer (fora de `automation/domain|application|adapters/**`)
+
+### Invariantes de Lock Preservados
+
+- ✅ Read-only: zero `unlink`/`rename`/`write` sobre `.lock`
+- ✅ Fail-closed: ENOENT/safeResolve/stat falham → skip; `mtimeMs === undefined` → skip
+- ✅ Sem heurística PID/idade autorizando remoção (diagnóstico informativo; AC-36/AC-37 intactos)
+- ✅ `contents = "<unreadable>"` em falha de leitura (Teste 10, não-Windows)
+- ✅ Teste 9 (imutabilidade) preservado — `openSync("r")` somente leitura
+- ✅ fd sempre fechado no `finally` (sem leak)
+
+### Arquivos Alterados (2)
+
+| Arquivo | Inserções | Remoções |
+|---------|-----------|----------|
+| `automation/adapters/orphan-lock-detector.test.ts` | — | — |
+| `automation/adapters/orphan-lock-detector.ts` | — | — |
+
+*(git diff --stat: 2 files changed, 48 insertions(+), 22 deletions(-))*
+
+### Quality Gates (reexecução pós-correção de lint)
+
+| Gate | Resultado | Exit code |
+|------|-----------|-----------|
+| format:check | ✅ PASS | 0 |
+| lint | ✅ PASS | 0 |
+| typecheck | ✅ PASS | 0 |
+| test:coverage | ✅ PASS (1.068/1.068) | 0 |
+| validate:data | ✅ PASS | 0 |
+| build | ✅ PASS | 0 |
+| git diff --check | ✅ PASS | 0 |
+
+**Nota:** `npm audit --audit-level=high` não executado (bloqueio de permissão na sessão); diff não toca `package.json`/lockfile.
+
+### Testes e Cobertura
+
+| Métrica | Valor |
+|---------|-------|
+| Testes | 1.068/1.068 passed (61 arquivos) |
+| Statements | 91,59% |
+| Branches | 86,79% |
+| Functions | 97,46% |
+| Lines | 91,59% |
+| Detector (orphan-lock-detector.ts) | 10/10 testes PASS, 80,51% Stmts |
+| Unhandled rejections | 0 |
+
+### Findings das Reviews Finais (diff acumulado)
+
+| Reviewer | Resultado | Findings |
+|----------|-----------|----------|
+| sprint-security | ✅ APROVADO | 0 BLOCKER, 0 HIGH, 0 MEDIUM, 1 LOW (pré-existente F-01 symlink), 2 INFO |
+| sprint-reviewer | ✅ APROVADO | 0 BLOCKER, 0 HIGH, 0 MEDIUM, 2 LOW (closeSync try/catch, statSync fallback redundante), 4 INFO |
+
+**Consolidação:** 0 BLOCKER, 0 HIGH, 0 MEDIUM. Findings LOW/INFO são non-blocking e não impedem `READY_FOR_HUMAN_REVIEW`.
+
+### Pendências (não bloqueantes)
+
+1. `automation/validate-data.ts` L66→L73 — `existsSync`→`readFileSync` same-function; recomendação para Sprint/PR separado (fora do escopo de escrita do implementer).
+2. F-01 Security LOW (pré-existente): `openSync` segue symlinks — hardening opcional com `O_NOFOLLOW`/revalidação `fstatSync(dev/ino)`.
+
+### Estado Final
+
+**Status:** `READY_FOR_HUMAN_REVIEW`
+**Motivo:** Remediação dos 11 alerts CodeQL concluída na raiz, sem supressão, sem enfraquecimento de testes. 7/7 quality gates PASS, 1.068/1.068 testes, reviews independentes com 0 BLOCKER/HIGH/MEDIUM. Verificação final do CodeQL depende do CI remoto (não executável localmente).

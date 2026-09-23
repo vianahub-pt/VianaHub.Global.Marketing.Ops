@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdirSync, readFileSync, writeFileSync, rmSync, chmodSync, utimesSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, rmSync, chmodSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -10,11 +10,7 @@ describe("detectPotentialOrphanLocks", () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = join(
-      tmpdir(),
-      `orphan-lock-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
-    mkdirSync(testDir, { recursive: true });
+    testDir = mkdtempSync(join(tmpdir(), "orphan-lock-test-"));
   });
 
   afterEach(() => {
