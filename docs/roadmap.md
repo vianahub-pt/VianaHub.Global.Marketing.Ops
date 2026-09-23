@@ -2,7 +2,7 @@
 
 ## Current Status
 
-**Version 0.4.0** - Production Foundation (Sprint 0)
+**Version 0.5.0** - Operational Hardening (Sprint 4)
 
 **Application status:** NO-GO for production — awaiting persistence, real controlled adapter, and operational hardening.
 
@@ -115,7 +115,7 @@
 - Analytics / reporting
 - Scheduling / batch processing
 
-## Sprint 4: Scheduling + Observability + Operational Hardening
+## Sprint 4: Scheduling + Observability + Operational Hardening — CONCLUÍDA
 
 ### Goals
 
@@ -127,12 +127,19 @@
 
 ### Deliverables
 
-- [ ] Cron scheduler
-- [ ] Batch processing
-- [ ] Operational monitoring
-- [ ] Alerting system
-- [ ] Audit logging
-- [ ] Error recovery automation
+- [x] Cron scheduler (`scheduler-engine.ts`, `cron-parser.ts`, `timezone.ts`)
+- [x] Batch processing (`batch-executor.ts`, `batch-schema.ts`, `batch-repository.ts`)
+- [x] Operational monitoring (`operational-event.ts`, `operational-emitter.ts`)
+- [x] Alerting system (`alert-schema.ts`, `alert-emitter.ts`, `file-alert-emitter.ts`, `console-alert-emitter.ts`)
+- [x] Audit logging (`audit-entry.ts`, `audit-repository.ts`, `file-audit-repo.ts`)
+- [x] Error recovery automation (`recovery.ts`, `automated-recovery.test.ts`)
+- [x] Overlap prevention (`overlap-check.ts`)
+- [x] Graceful shutdown (`shutdown.ts`)
+- [x] Orphan lock detector (`orphan-lock-detector.ts`)
+- [x] Scheduler architecture documentation (`docs/architecture/scheduling.md`)
+- [x] Batch processing architecture documentation (`docs/architecture/batch-processing.md`)
+- [x] Observability architecture documentation (`docs/architecture/observability.md`)
+- [x] Operational runbook (`docs/runbook.md`)
 
 ## Sprint 5: Analytics + Reporting + Multi-Market Preparation
 

@@ -18,6 +18,7 @@ import type { IdempotencyKey, RunId } from "../domain/idempotency.js";
 import type { RunRecord } from "../domain/run-record.js";
 import type { RunListFilters, RunRepository } from "../domain/repository.js";
 import { CorruptedRecordError, ConcurrencyConflictError } from "./persistence-errors.js";
+import { OperationalError, ERROR_CODES } from "../domain/errors.js";
 
 // ─── File Format ─────────────────────────────────────────────────────────────
 
@@ -267,17 +268,18 @@ export class FileRunRepository implements RunRepository {
    *  - Never deletes, renames, or replaces an existing lock file.
    *  - If a process crashes while holding the lock, the file persists and
    *    requires manual intervention to remove.
-   *  - Retries with exponential backoff (base 10 ms, max 300 ms) up to
-   *    100 attempts for cross-process contention.
+   *  - AC-39: On EEXIST (lock contention), retries asynchronously with
+   *    exponential backoff before failing. No PID checks, no age heuristics,
+   *    no stale cleanup.
    *
    * On POSIX: O_EXCL ensures atomic exclusive creation.
    * On Windows: O_EXCL provides mutual exclusion.
    */
-  private acquireFileLock(runId: RunId): void {
+  private async acquireFileLock(runId: RunId): Promise<void> {
     const lockFile = this.lockPathFor(runId);
-
-    const maxRetries = 100;
+    const maxRetries = 60;
     const baseDelayMs = 10;
+    const maxDelayMs = 500;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       let fd: number | undefined;
@@ -303,19 +305,32 @@ export class FileRunRepository implements RunRepository {
         }
 
         if (isNodeError(error) && error.code === "EEXIST") {
-          const delay = Math.min(baseDelayMs * 2 ** Math.min(attempt, 5), 300);
-          const start = Date.now();
-          while (Date.now() - start < delay) {
-            /* busy-wait */
+          // AC-39: Retry with exponential backoff (non-blocking async delay)
+          // AC-40: Fail-closed — do NOT check PID, age, or heuristics
+          if (attempt < maxRetries - 1) {
+            const delay = Math.min(baseDelayMs * 2 ** attempt, maxDelayMs);
+            await new Promise<void>((resolve) => setTimeout(resolve, delay));
+            continue;
           }
-          continue;
+          // Exhausted all retries — fail with LOCK_CONTENTION
+          throw new OperationalError({
+            code: ERROR_CODES.LOCK_CONTENTION,
+            message: `Lock contention for runId: ${runId} after ${maxRetries} attempts`,
+            action: "Runbook: docs/runbook.md#lock-contention",
+            context: { runId, attempts: maxRetries },
+          });
         }
 
         throw error;
       }
     }
 
-    throw new Error(`Failed to acquire file lock for runId ${runId} after ${maxRetries} retries`);
+    throw new OperationalError({
+      code: ERROR_CODES.LOCK_TIMEOUT,
+      message: `Lock acquisition timeout for runId: ${runId} after ${maxRetries} attempts`,
+      action: "Runbook: docs/runbook.md#lock-timeout",
+      context: { runId, attempts: maxRetries },
+    });
   }
 
   /**
@@ -371,8 +386,8 @@ export class FileRunRepository implements RunRepository {
     try {
       await previous;
 
-      // Acquire cross-process file lock
-      this.acquireFileLock(runId);
+      // Acquire cross-process file lock (AC-39: now async)
+      await this.acquireFileLock(runId);
       try {
         return await fn();
       } finally {
