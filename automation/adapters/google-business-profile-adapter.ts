@@ -45,6 +45,14 @@ interface AdapterInternalState {
   dryRunExecuted: boolean;
 }
 
+// ─── Resolved live context ───────────────────────────────────────────────────
+
+interface ResolvedLiveContext {
+  readonly transport: GbpTransport;
+  readonly accountId: string;
+  readonly locationId: string;
+}
+
 // ─── GoogleBusinessProfileAdapter ────────────────────────────────────────────
 
 /**
@@ -77,6 +85,73 @@ export class GoogleBusinessProfileAdapter implements PlatformAdapter {
   constructor(dryRun = false, transport: GbpTransport | null = null) {
     this.dryRun = dryRun;
     this.transport = transport;
+  }
+
+  // ─── Private gate helpers ───────────────────────────────────────────────────
+
+  /**
+   * AP-05: Ensures GBP preflight passes and config loads.
+   * Called before any execution (live or dry-run).
+   * Throws GbpGateError on failure.
+   */
+  private ensureGbpPreflightReady(): void {
+    const preflight = checkGbpPreflight();
+    if (preflight.status === "BLOCKED_NEEDS_HUMAN") {
+      throw new GbpGateError(preflight.message, "BLOCKED_NEEDS_HUMAN", true);
+    }
+    try {
+      loadGbpConfig();
+      this.state.configLoaded = true;
+    } catch (error) {
+      const errMessage = error instanceof Error ? error.message : String(error);
+      throw new GbpGateError(errMessage, "CONFIG_ERROR", false);
+    }
+  }
+
+  /**
+   * HUMAN-004: Resolves live execution context by checking pilot gate,
+   * CI environment, credentials, and transport.
+   * Called only for live (non-dry-run) execution.
+   * Throws GbpGateError on failure.
+   */
+  private async resolveLiveContext(): Promise<ResolvedLiveContext> {
+    const livePilotGate = checkLivePilotGate(process.env, {
+      dryRunExecuted: this.state.dryRunExecuted,
+    });
+    if (livePilotGate.status !== "ALLOWED") {
+      throw new GbpGateError(livePilotGate.reason, "BLOCKED_NEEDS_HUMAN", true);
+    }
+
+    if (process.env.GITHUB_ACTIONS === "true") {
+      throw new GbpGateError(
+        "Live execution blocked in CI environment — GITHUB_ACTIONS=true",
+        "BLOCKED_NEEDS_HUMAN",
+        true,
+      );
+    }
+
+    const accountId = process.env.GBP_ACCOUNT_ID;
+    const locationId = process.env.GBP_LOCATION_ID;
+    if (!accountId || !locationId) {
+      throw new GbpGateError(
+        "GBP_ACCOUNT_ID or GBP_LOCATION_ID not configured",
+        "BLOCKED_NEEDS_HUMAN",
+        true,
+      );
+    }
+
+    let transport = this.transport;
+    if (!transport) {
+      try {
+        const { createGbpTransport } = await import("./gbp-http-transport.js");
+        transport = createGbpTransport();
+      } catch (error) {
+        const errMessage = error instanceof Error ? error.message : String(error);
+        throw new GbpGateError(errMessage, "CONFIG_ERROR", false);
+      }
+    }
+
+    return { transport, accountId, locationId };
   }
 
   async execute(context: AdapterContext): Promise<AdapterResult> {
@@ -116,40 +191,24 @@ export class GoogleBusinessProfileAdapter implements PlatformAdapter {
       }
     }
 
-    // AP-05: Gate is executed before any execution (live or dry-run)
-    const preflight = checkGbpPreflight();
-    if (preflight.status === "BLOCKED_NEEDS_HUMAN") {
-      const result: AdapterResult = {
-        success: false,
-        error: {
-          message: preflight.message,
-          code: "BLOCKED_NEEDS_HUMAN",
-          retryable: false,
-        },
-        requiresManual: true,
-      };
-      this.state.lastResult = result;
-      return result;
-    }
-
-    // Load config (validates all env vars present)
+    // AP-05: Preflight gate + config (required even in dry-run mode)
     try {
-      loadGbpConfig();
-      this.state.configLoaded = true;
+      this.ensureGbpPreflightReady();
     } catch (error) {
-      // SG-01: redactError() applied to all errors
-      const errMessage = error instanceof Error ? error.message : String(error);
-      const result: AdapterResult = {
-        success: false,
-        error: redactError({
-          message: errMessage,
-          code: "CONFIG_ERROR",
-          retryable: false,
-        }),
-        requiresManual: false,
-      };
-      this.state.lastResult = result;
-      return result;
+      if (error instanceof GbpGateError) {
+        const result: AdapterResult = {
+          success: false,
+          error: redactError({
+            message: error.message,
+            code: error.code,
+            retryable: false,
+          }),
+          requiresManual: error.requiresManual,
+        };
+        this.state.lastResult = result;
+        return result;
+      }
+      throw error;
     }
 
     if (this.dryRun) {
@@ -172,37 +231,25 @@ export class GoogleBusinessProfileAdapter implements PlatformAdapter {
       return result;
     }
 
-    // HUMAN-004: LivePilotGate — check before any live mutation
-    const livePilotGate = checkLivePilotGate(process.env, {
-      dryRunExecuted: this.state.dryRunExecuted,
-    });
-    if (livePilotGate.status !== "ALLOWED") {
-      const result: AdapterResult = {
-        success: false,
-        error: redactError({
-          message: livePilotGate.reason,
-          code: "BLOCKED_NEEDS_HUMAN",
-          retryable: false,
-        }),
-        requiresManual: true,
-      };
-      this.state.lastResult = result;
-      return result;
-    }
-
-    // CI block — no live execution in CI environment
-    if (process.env.GITHUB_ACTIONS === "true") {
-      const result: AdapterResult = {
-        success: false,
-        error: redactError({
-          message: "Live execution blocked in CI environment — GITHUB_ACTIONS=true",
-          code: "BLOCKED_NEEDS_HUMAN",
-          retryable: false,
-        }),
-        requiresManual: true,
-      };
-      this.state.lastResult = result;
-      return result;
+    // HUMAN-004: Live gates + transport resolution
+    let liveCtx: ResolvedLiveContext;
+    try {
+      liveCtx = await this.resolveLiveContext();
+    } catch (error) {
+      if (error instanceof GbpGateError) {
+        const result: AdapterResult = {
+          success: false,
+          error: redactError({
+            message: error.message,
+            code: error.code,
+            retryable: false,
+          }),
+          requiresManual: error.requiresManual,
+        };
+        this.state.lastResult = result;
+        return result;
+      }
+      throw error;
     }
 
     // Live execution — SG-02: redactLog applied to execution logs
@@ -221,46 +268,6 @@ export class GoogleBusinessProfileAdapter implements PlatformAdapter {
       return result;
     }
 
-    const accountId = process.env.GBP_ACCOUNT_ID;
-    const locationId = process.env.GBP_LOCATION_ID;
-
-    if (!accountId || !locationId) {
-      const result: AdapterResult = {
-        success: false,
-        error: redactError({
-          message: "GBP_ACCOUNT_ID or GBP_LOCATION_ID not configured",
-          code: "BLOCKED_NEEDS_HUMAN",
-          retryable: false,
-        }),
-        requiresManual: true,
-      };
-      this.state.lastResult = result;
-      return result;
-    }
-
-    // Resolve transport: use injected or create from env
-    let transport = this.transport;
-    if (!transport) {
-      try {
-        // Dynamic import to avoid loading transport when not needed
-        const { createGbpTransport } = await import("./gbp-http-transport.js");
-        transport = createGbpTransport();
-      } catch (error) {
-        const errMessage = error instanceof Error ? error.message : String(error);
-        const result: AdapterResult = {
-          success: false,
-          error: redactError({
-            message: errMessage,
-            code: "CONFIG_ERROR",
-            retryable: false,
-          }),
-          requiresManual: false,
-        };
-        this.state.lastResult = result;
-        return result;
-      }
-    }
-
     // SG-02: redactLog — log before calling API
     console.log(
       JSON.stringify(
@@ -269,16 +276,16 @@ export class GoogleBusinessProfileAdapter implements PlatformAdapter {
           operation: "createLocalPost",
           message: "Executing live API call",
           runId: context.runId,
-          accountId: accountId.slice(0, 4) + "***",
-          locationId: locationId.slice(0, 4) + "***",
+          accountId: liveCtx.accountId.slice(0, 4) + "***",
+          locationId: liveCtx.locationId.slice(0, 4) + "***",
         }),
       ),
     );
 
     try {
       const apiBody = buildApiRequestBody(payload);
-      const path = `/accounts/${accountId}/locations/${locationId}/localPosts`;
-      const response = await transport!.request<{
+      const path = `/accounts/${liveCtx.accountId}/locations/${liveCtx.locationId}/localPosts`;
+      const response = await liveCtx.transport.request<{
         name?: string;
         postId?: string;
         summary?: string;
@@ -301,14 +308,7 @@ export class GoogleBusinessProfileAdapter implements PlatformAdapter {
     } catch (error) {
       // Detect CAPTCHA / MFA / ToS obstacles
       const errMessage = extractErrorMessage(error);
-      const lowerMessage = errMessage.toLowerCase();
-      const requiresManual =
-        lowerMessage.includes("captcha") ||
-        lowerMessage.includes("mfa") ||
-        lowerMessage.includes("multi-factor") ||
-        lowerMessage.includes("terms of service") ||
-        lowerMessage.includes("tos") ||
-        lowerMessage.includes("consent required");
+      const requiresManual = isManualInterventionRequired(errMessage);
 
       const transportError = toTransportError(error);
 
@@ -363,18 +363,15 @@ export class GoogleBusinessProfileAdapter implements PlatformAdapter {
       throw new Error(`Invalid payload: ${redactError({ message: validation.error! }).message}`);
     }
 
-    // AP-05: Gate check before any execution (live or dry-run)
-    const preflight = checkGbpPreflight();
-    if (preflight.status === "BLOCKED_NEEDS_HUMAN") {
-      throw new Error(`Preflight blocked: ${preflight.message}`);
-    }
-
-    // Load config (validates all env vars present)
+    // AP-05: Preflight gate + config (required even in dry-run mode)
     try {
-      loadGbpConfig();
+      this.ensureGbpPreflightReady();
     } catch (error) {
-      const errMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Config error: ${redactError({ message: errMessage }).message}`);
+      if (error instanceof GbpGateError) {
+        const prefix = error.requiresManual ? "Preflight blocked" : "Config error";
+        throw new Error(`${prefix}: ${redactError({ message: error.message }).message}`);
+      }
+      throw error;
     }
 
     if (dryRun) {
@@ -390,50 +387,20 @@ export class GoogleBusinessProfileAdapter implements PlatformAdapter {
       };
     }
 
-    // HUMAN-004: LivePilotGate — check before any live mutation
-    const livePilotGate = checkLivePilotGate(process.env, {
-      dryRunExecuted: this.state.dryRunExecuted,
-    });
-    if (livePilotGate.status !== "ALLOWED") {
-      throw new Error(
-        redactError({
-          message: livePilotGate.reason,
-          code: "BLOCKED_NEEDS_HUMAN",
-        }).message,
-      );
-    }
-
-    // CI block — no live execution in CI environment
-    if (process.env.GITHUB_ACTIONS === "true") {
-      throw new Error(
-        redactError({
-          message: "Live execution blocked in CI environment — GITHUB_ACTIONS=true",
-          code: "BLOCKED_NEEDS_HUMAN",
-        }).message,
-      );
-    }
-
-    const accountId = process.env.GBP_ACCOUNT_ID;
-    const locationId = process.env.GBP_LOCATION_ID;
-    if (!accountId || !locationId) {
-      throw new Error(
-        redactError({
-          message: "GBP_ACCOUNT_ID or GBP_LOCATION_ID not configured",
-          code: "BLOCKED_NEEDS_HUMAN",
-        }).message,
-      );
-    }
-
-    // Resolve transport: use injected or create from env
-    let transport = this.transport;
-    if (!transport) {
-      try {
-        const { createGbpTransport } = await import("./gbp-http-transport.js");
-        transport = createGbpTransport();
-      } catch (error) {
-        const errMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`Config error: ${redactError({ message: errMessage }).message}`);
+    // HUMAN-004: Live gates + transport resolution
+    let liveCtx: ResolvedLiveContext;
+    try {
+      liveCtx = await this.resolveLiveContext();
+    } catch (error) {
+      if (error instanceof GbpGateError) {
+        throw new Error(
+          redactError({
+            message: error.message,
+            code: error.code,
+          }).message,
+        );
       }
+      throw error;
     }
 
     // SG-02: redactLog — log before calling API
@@ -444,16 +411,16 @@ export class GoogleBusinessProfileAdapter implements PlatformAdapter {
           operation: "createLocalPost",
           message: "Executing live API call via createLocalPost",
           runId: context.runId,
-          accountId: accountId.slice(0, 4) + "***",
-          locationId: locationId.slice(0, 4) + "***",
+          accountId: liveCtx.accountId.slice(0, 4) + "***",
+          locationId: liveCtx.locationId.slice(0, 4) + "***",
         }),
       ),
     );
 
     try {
       const apiBody = buildApiRequestBody(payload);
-      const path = `/accounts/${accountId}/locations/${locationId}/localPosts`;
-      const response = await transport!.request<{
+      const path = `/accounts/${liveCtx.accountId}/locations/${liveCtx.locationId}/localPosts`;
+      const response = await liveCtx.transport.request<{
         name?: string;
         postId?: string;
         summary?: string;
@@ -467,16 +434,8 @@ export class GoogleBusinessProfileAdapter implements PlatformAdapter {
       return mapCreateLocalPostResponse(response.data, payload);
     } catch (error) {
       const errMessage = extractErrorMessage(error);
-      const lowerMessage = errMessage.toLowerCase();
-      const isToS =
-        lowerMessage.includes("captcha") ||
-        lowerMessage.includes("mfa") ||
-        lowerMessage.includes("multi-factor") ||
-        lowerMessage.includes("terms of service") ||
-        lowerMessage.includes("tos") ||
-        lowerMessage.includes("consent required");
 
-      if (isToS) {
+      if (isManualInterventionRequired(errMessage)) {
         throw new Error(
           redactError({
             message: `Manual intervention required: ${errMessage}`,
@@ -494,6 +453,36 @@ export class GoogleBusinessProfileAdapter implements PlatformAdapter {
 interface ValidationResult {
   readonly valid: boolean;
   readonly error?: string;
+}
+
+/**
+ * Returns true when the error message indicates a CAPTCHA, MFA, or ToS
+ * obstacle that requires manual human intervention.
+ */
+function isManualInterventionRequired(errorMessage: string): boolean {
+  const lower = errorMessage.toLowerCase();
+  return (
+    lower.includes("captcha") ||
+    lower.includes("mfa") ||
+    lower.includes("multi-factor") ||
+    lower.includes("terms of service") ||
+    lower.includes("tos") ||
+    lower.includes("consent required")
+  );
+}
+
+/**
+ * Internal error thrown by gate helpers to carry structured error metadata.
+ * Callers catch and convert to AdapterResult or rethrow as plain Error.
+ */
+class GbpGateError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly requiresManual: boolean,
+  ) {
+    super(message);
+  }
 }
 
 function validateContext(context: AdapterContext): ValidationResult {

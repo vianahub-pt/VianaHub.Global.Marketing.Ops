@@ -16,6 +16,7 @@ import type { IdempotencyKey, PayloadFingerprint, RunId } from "../domain/idempo
 import type { RunRecord } from "../domain/run-record.js";
 import { FileRunRepository } from "./file-run-repo.js";
 import { CorruptedRecordError, ConcurrencyConflictError } from "./persistence-errors.js";
+import { OperationalError, ERROR_CODES } from "../domain/errors.js";
 
 // ─── Module mock for lock/unlock testing ──────────────────────────────────────
 
@@ -804,60 +805,185 @@ describe("FileRunRepository", () => {
       expect(mockWriteSyncCapturePid).toBe(String(process.pid));
     });
 
-    it("concurrent canonical lock is never deleted or renamed by acquisition", async () => {
+    it("lock contention on update throws OperationalError with LOCK_CONTENTION", async () => {
+      vi.useFakeTimers();
+
+      try {
+        const repo = new FileRunRepository(tempDir);
+        const record = createRunRecord();
+
+        // Create record first (no lock contention)
+        await repo.create(record);
+
+        // Manually create a lock file to simulate contention
+        const lockFile = join(tempDir, `${record.runId}.lock`);
+        const fd = openSync(lockFile, "wx");
+        closeSync(fd);
+
+        // Update should fail with OperationalError LOCK_CONTENTION after retries
+        const updated = { ...record, state: "running" as const };
+        const updatePromise = repo.update(updated);
+
+        // Attach rejection handler BEFORE advancing timers to prevent
+        // PromiseRejectionHandledWarning / unhandled rejection in Vitest
+        const assertionsPromise = updatePromise.then(
+          () => expect.fail("Should have thrown OperationalError"),
+          (error) => {
+            expect(error).toBeInstanceOf(OperationalError);
+            const opError = error as OperationalError;
+            expect(opError.code).toBe(ERROR_CODES.LOCK_CONTENTION);
+            expect(opError.message).toContain("Lock contention");
+            expect(opError.message).toContain(record.runId);
+          },
+        );
+
+        // Advance timers to process all retries
+        await vi.advanceTimersByTimeAsync(30_000);
+
+        await assertionsPromise;
+
+        // Manual cleanup
+        unlinkSync(lockFile);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AC-39 — Lock Contention Backoff (fail-closed async exponential)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  describe("lock contention backoff (AC-39)", () => {
+    it("acquireFileLock is async (returns Promise)", async () => {
       const repo = new FileRunRepository(tempDir);
       const record = createRunRecord();
 
-      // Create a canonical lock file manually via O_EXCL
-      const lockFile = join(tempDir, `${record.runId}.lock`);
-      const fd = openSync(lockFile, "wx");
-      closeSync(fd);
+      // Verify create() still works — acquireFileLock is now async internally
+      const result = await repo.create(record);
+      expect(result).toEqual(record);
+    });
 
-      // Verify lock file exists before the attempt
-      expect(readdirSync(tempDir).filter((f) => f.endsWith(".lock"))).toHaveLength(1);
+    it("lock contention retries and eventually throws LOCK_CONTENTION after exhausting retries", async () => {
+      vi.useFakeTimers();
 
-      // Attempt to create a record — acquisition must fail after retries
-      // because the lock is held. This is a fail-closed design: the lock
-      // is never deleted, renamed, or replaced.
       try {
-        await repo.create(record);
-        expect.fail("Should have thrown Failed to acquire file lock");
-      } catch (error) {
-        expect((error as Error).message).toContain("Failed to acquire file lock");
+        const repo = new FileRunRepository(tempDir);
+        const record = createRunRecord();
+
+        // Create a lock file to simulate contention
+        const lockFile = join(tempDir, `${record.runId}.lock`);
+        const fd = openSync(lockFile, "wx");
+        closeSync(fd);
+
+        // Start the operation — it will retry with backoff using fake timers
+        const createPromise = repo.create(record);
+
+        // Attach rejection handler BEFORE advancing timers to prevent
+        // PromiseRejectionHandledWarning / unhandled rejection in Vitest
+        const assertionsPromise = createPromise.then(
+          () => expect.fail("Should have thrown OperationalError"),
+          (error) => {
+            expect(error).toBeInstanceOf(OperationalError);
+            const opError = error as OperationalError;
+            expect(opError.code).toBe(ERROR_CODES.LOCK_CONTENTION);
+            expect(opError.name).toBe("OperationalError");
+            expect(opError.message).toContain("Lock contention");
+            expect(opError.message).toContain(record.runId);
+            expect(opError.message).toContain("60 attempts");
+            expect(opError.action).toBe("Runbook: docs/runbook.md#lock-contention");
+            expect(opError.context).toEqual({ runId: record.runId, attempts: 60 });
+          },
+        );
+
+        // Advance timers to process all 60 retries
+        // Backoff: 10, 20, 40, 80, 160, 320, 500, 500, ... (capped at 500ms)
+        // Total for 59 delays: 10+20+40+80+160+320+500*53 = 26,630ms
+        await vi.advanceTimersByTimeAsync(30_000);
+
+        await assertionsPromise;
+
+        // Lock file still exists — fail-closed
+        expect(readdirSync(tempDir).filter((f) => f.endsWith(".lock"))).toHaveLength(1);
+
+        // Manual cleanup
+        unlinkSync(lockFile);
+      } finally {
+        vi.useRealTimers();
       }
+    });
 
-      // The lock file must still exist — fail-closed means no automatic removal
-      expect(readdirSync(tempDir).filter((f) => f.endsWith(".lock"))).toHaveLength(1);
-
-      // Manual cleanup
-      unlinkSync(lockFile);
-    }, 60_000);
-
-    it("exhausted retries fail with actionable error", async () => {
-      const repo = new FileRunRepository(tempDir);
-      const record = createRunRecord();
-
-      // Create a canonical lock file manually via O_EXCL
-      const lockFile = join(tempDir, `${record.runId}.lock`);
-      const fd = openSync(lockFile, "wx");
-      closeSync(fd);
-
-      // Attempt to create a record — must fail with actionable error
-      // containing the runId so the operator can identify which lock to clear.
+    it("retry succeeds when lock becomes available mid-retry", async () => {
+      vi.useFakeTimers();
       try {
-        await repo.create(record);
-        expect.fail("Should have thrown Failed to acquire file lock");
-      } catch (error) {
-        const message = (error as Error).message;
-        expect(message).toContain("Failed to acquire file lock");
-        expect(message).toContain(record.runId);
+        const repo = new FileRunRepository(tempDir);
+        const record = createRunRecord();
+
+        // Create a lock file to simulate contention
+        const lockFile = join(tempDir, `${record.runId}.lock`);
+        const fd = openSync(lockFile, "wx");
+        closeSync(fd);
+
+        // Release the lock after a short delay (simulating another process releasing)
+        const releasePromise = new Promise<void>((resolve) => {
+          setTimeout(() => {
+            try {
+              unlinkSync(lockFile);
+            } catch {
+              /* already gone */
+            }
+            resolve();
+          }, 25); // Release between 1st retry (10ms) and 2nd retry (10+20=30ms)
+        });
+
+        // Start the operation — it will retry
+        const createPromise = repo.create(record);
+
+        // Advance timers to trigger the release and a few retries
+        await vi.advanceTimersByTimeAsync(100);
+
+        // The create should have succeeded after retry
+        const result = await createPromise;
+        expect(result).toEqual(record);
+
+        // Verify the record was actually written
+        const retrieved = await repo.getById(record.runId);
+        expect(retrieved).toEqual(record);
+
+        await releasePromise;
+      } finally {
+        vi.useRealTimers();
       }
+    });
 
-      // The lock file must still exist — no stale cleanup in fail-closed design
-      expect(readdirSync(tempDir).filter((f) => f.endsWith(".lock"))).toHaveLength(1);
+    it("backoff uses exponential delay capped at 500ms", () => {
+      // Verify the source code contains the backoff pattern
+      const sourceCode = readFileSync(join(__dirname, "file-run-repo.ts"), "utf8");
 
-      // Manual cleanup
-      unlinkSync(lockFile);
-    }, 60_000);
+      // Must use async delay (setTimeout/Promise), NOT busy-wait
+      expect(sourceCode).toContain("setTimeout");
+      expect(sourceCode).toContain("new Promise");
+      // Must have exponential backoff calculation
+      expect(sourceCode).toContain("baseDelayMs * 2 ** attempt");
+      // Must have cap at 500ms
+      expect(sourceCode).toContain("maxDelayMs");
+      // Must NOT have busy-wait pattern
+      expect(sourceCode).not.toContain("while (Date.now() - start < delay)");
+      // Must reference LOCK_CONTENTION for exhausted retries
+      expect(sourceCode).toContain("ERROR_CODES.LOCK_CONTENTION");
+      // Must reference correct runbook path
+      expect(sourceCode).toContain("docs/runbook.md");
+      expect(sourceCode).not.toContain("docs/operations/runbook.md");
+    });
+
+    it("no busy-wait synchronous loop in acquireFileLock", async () => {
+      // Verify the source code does not contain the busy-wait pattern
+      const sourceCode = readFileSync(join(__dirname, "file-run-repo.ts"), "utf8");
+
+      // Old busy-wait pattern: `while (Date.now() - start < delay)`
+      expect(sourceCode).not.toContain("while (Date.now() - start < delay)");
+      // New pattern: async delay with setTimeout
+      expect(sourceCode).toContain("setTimeout");
+    });
   });
 });

@@ -100,3 +100,13 @@ function redactEntry(entry: Record<string, unknown>): Record<string, unknown> {
 export function redactLog(entry: Record<string, unknown>): Record<string, unknown> {
   return redactEntry(entry);
 }
+
+/**
+ * Returns a redacted copy of a plain error message string.
+ * Uses redactLog internally and extracts the result as a string,
+ * avoiding unsafe `as string` casts at call sites.
+ */
+export function redactErrorString(msg: string): string {
+  const result = redactLog({ error: msg });
+  return String(result.error);
+}

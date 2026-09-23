@@ -15,8 +15,8 @@ export { FakeAdapter } from "./fake-adapter.js";
 export type { FakeAdapterMode } from "./fake-adapter.js";
 
 export { executeRun, resumeRun, recoveryLoop } from "./orchestrator.js";
-export type { RecoveryResult, RecoveryStrategy } from "./recovery.js";
-export { detectInterruptedRuns, recoverRun } from "./recovery.js";
+export type { RecoveryResult, RecoveryStrategy, AutomatedRecoveryResult } from "./recovery.js";
+export { detectInterruptedRuns, recoverRun, automatedRecoveryLoop } from "./recovery.js";
 export { synchronizeStatus, resolveAdapterState } from "./status-sync.js";
 export type { ReconciledResult } from "./status-sync.js";
 
@@ -29,6 +29,10 @@ export type { FileStoredRunRecord } from "./file-run-repo.js";
 
 export { FileCheckpointRepository } from "./file-checkpoint-repo.js";
 export type { CheckpointRepository, CheckpointDto } from "./checkpoint-repository.js";
+
+export { FileScheduleRepository } from "./file-schedule-repo.js";
+
+export { FileAuditRepository } from "./file-audit-repo.js";
 
 export {
   PersistenceError,
@@ -69,3 +73,24 @@ export type {
   LivePilotGateResult,
   LivePilotCheck,
 } from "./pilot-scope.js";
+
+export {
+  emitRunEvent,
+  emitRecoveryEvent,
+  emitScheduleEvent,
+  emitBatchEvent,
+} from "./orchestrator-events.js";
+
+export { createConsoleAlertEmitter } from "./console-alert-emitter.js";
+export { createFileAlertEmitter, readPersistedAlerts } from "./file-alert-emitter.js";
+
+export { detectPotentialOrphanLocks } from "./orphan-lock-detector.js";
+export type { OrphanLockInfo, OrphanLockScanResult } from "./orphan-lock-detector.js";
+
+export { GracefulShutdown, registerShutdownHandlers } from "./shutdown.js";
+export type {
+  ShutdownConfig,
+  ShutdownDependencies,
+  ShutdownState,
+  ShutdownResult,
+} from "./shutdown.js";

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { RunError } from "./run-state.js";
-import { redactError, redactLog } from "./redaction.js";
+import { redactError, redactErrorString, redactLog } from "./redaction.js";
 
 const STRIPE_LIKE_TEST_KEY = ["sk", "live", "abc123def456ghi789jkl0mno"].join("_");
 const STRIPE_TEST_LIKE_TEST_KEY = ["sk", "test", "abcdef1234567890abcdef"].join("_");
@@ -169,5 +169,55 @@ describe("redactLog", () => {
 
     expect(result.detail).not.toContain("BEGIN RSA PRIVATE KEY");
     expect(result.detail).toContain("[REDACTED]");
+  });
+});
+
+// ─── redactErrorString ─────────────────────────────────────────────────────
+
+describe("redactErrorString", () => {
+  it("redacts JWT tokens", () => {
+    const input =
+      "Error with token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U in header";
+    const result = redactErrorString(input);
+
+    expect(result).toContain("[REDACTED]");
+    expect(result).not.toContain("eyJhbGciOiJIUzI1NiJ9");
+  });
+
+  it("redacts API keys", () => {
+    const input = `Failed with key ${STRIPE_LIKE_TEST_KEY} invalid`;
+    const result = redactErrorString(input);
+
+    expect(result).toContain("[REDACTED]");
+    expect(result).not.toContain(STRIPE_LIKE_TEST_KEY);
+  });
+
+  it("redacts passwords", () => {
+    const input = "Connection failed password=secret123 on host";
+    const result = redactErrorString(input);
+
+    expect(result).toContain("[REDACTED]");
+    expect(result).not.toContain("secret123");
+  });
+
+  it("redacts PEM keys", () => {
+    const input = "Key: -----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----";
+    const result = redactErrorString(input);
+
+    expect(result).toContain("[REDACTED]");
+    expect(result).not.toContain("BEGIN RSA PRIVATE KEY");
+  });
+
+  it("passes through clean strings", () => {
+    const input = "Simple error message";
+    const result = redactErrorString(input);
+
+    expect(result).toBe(input);
+  });
+
+  it("handles empty string", () => {
+    const result = redactErrorString("");
+
+    expect(result).toBe("");
   });
 });

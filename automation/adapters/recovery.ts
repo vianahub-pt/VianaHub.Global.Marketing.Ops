@@ -2,8 +2,13 @@ import type { RunId } from "../domain/idempotency.js";
 import type { RunRecord } from "../domain/run-record.js";
 import type { RunRepository } from "../domain/repository.js";
 import type { RunState } from "../domain/run-state.js";
+import type { AuditRepository } from "../domain/audit-repository.js";
+import type { AlertEmitter } from "../domain/alert-emitter.js";
+import { createAlertEntry } from "../domain/alert-schema.js";
+import { createAuditEntry } from "../domain/audit-entry.js";
+import { redactError, redactErrorString, redactLog } from "../domain/redaction.js";
+import type { Clock } from "../domain/clock.js";
 import { transitionRunState } from "../domain/transition.js";
-import { redactError } from "../domain/redaction.js";
 
 import type { PlatformAdapter, StatusCheckResult } from "./platform-adapter.js";
 
@@ -372,6 +377,255 @@ export async function recoveryLoop(
         action: "error",
         reason: `Recovery failed: ${message}`,
         error: message,
+      });
+    }
+  }
+
+  return results;
+}
+
+// ─── AutomatedRecoveryResult ────────────────────────────────────────────────
+
+export interface AutomatedRecoveryResult {
+  readonly runId: string;
+  readonly previousState: RunState;
+  readonly newState: RunState;
+  readonly action: string;
+  readonly reason: string;
+  readonly alertEmitted: boolean;
+  readonly auditRecorded: boolean;
+  readonly error?: string;
+}
+
+// ─── automatedRecoveryLoop ──────────────────────────────────────────────────
+
+/**
+ * Automated recovery loop with audit and alert integration.
+ *
+ * AC-31: Calls detectInterruptedRuns + recoverRun for each;
+ * emits audit + alert for each action.
+ *
+ * AC-32: NEVER transitions waiting_manual to running automatically.
+ * Registers audit entry "skipped: waiting_manual".
+ *
+ * AC-33: Non-retryable failures are NOT re-executed.
+ * Registers audit entry "skipped: non-retryable".
+ *
+ * AC-34: Does NOT transition states requiring CAPTCHA/MFA/
+ * verification/human action. Preserves waiting_manual.
+ *
+ * AC-35: Can be called multiple times without side effects.
+ * Idempotency preserved via existing audit entries.
+ */
+export async function automatedRecoveryLoop(
+  adapter: PlatformAdapter | null,
+  repo: RunRepository,
+  auditEmitter: AuditRepository,
+  alertEmitter: AlertEmitter,
+  clock: Clock,
+): Promise<AutomatedRecoveryResult[]> {
+  const interruptedRuns = await detectInterruptedRuns(repo);
+  const waitingManualRuns = await repo.list({ state: "waiting_manual" });
+  const allFailedRuns = await repo.list({ state: "failed" });
+
+  // AC-33: Include non-retryable and max-attempts failed runs for skip handling.
+  // detectInterruptedRuns only returns retryable failed runs with attempt < maxAttempts,
+  // so we need to explicitly include the terminal failed runs here.
+  const terminalFailedRuns = allFailedRuns.filter(
+    (r) => r.error?.retryable === false || r.attempt >= r.maxAttempts,
+  );
+
+  // Deduplicate by runId to avoid processing a run twice
+  const allRunsMap = new Map<string, RunRecord>();
+  for (const run of [...interruptedRuns, ...waitingManualRuns, ...terminalFailedRuns]) {
+    allRunsMap.set(run.runId, run);
+  }
+  const allRunsToProcess = Array.from(allRunsMap.values());
+  const results: AutomatedRecoveryResult[] = [];
+
+  for (const run of allRunsToProcess) {
+    const previousState = run.state;
+
+    // AC-32: NEVER auto-transition waiting_manual
+    if (run.state === "waiting_manual") {
+      const auditEntry = createAuditEntry({
+        category: "recovery",
+        action: "recovery.skipped",
+        actor: "system",
+        correlationIds: {
+          runId: run.runId,
+          scheduleId: run.metadata?.scheduleId as string | undefined,
+          batchId: run.metadata?.batchId as string | undefined,
+        },
+        previousState: "waiting_manual",
+        newState: "waiting_manual",
+        metadata: { reason: "skipped: waiting_manual" },
+        clock,
+      });
+      await auditEmitter.append(auditEntry);
+
+      const alert = createAlertEntry({
+        severity: "info",
+        category: "recovery",
+        message: `Recovery skipped for run ${run.runId}: waiting_manual (requires human action)`,
+        correlationIds: { runId: run.runId },
+        deduplicationKey: `recovery-skip-waiting-manual-${run.runId}`,
+        clock,
+      });
+      alertEmitter.emit(alert);
+
+      results.push({
+        runId: run.runId,
+        previousState,
+        newState: "waiting_manual",
+        action: "skipped",
+        reason: "skipped: waiting_manual",
+        alertEmitted: true,
+        auditRecorded: true,
+      });
+      continue;
+    }
+
+    // AC-33: Non-retryable failures are NOT re-executed
+    if (
+      run.state === "failed" &&
+      (run.error?.retryable === false || run.attempt >= run.maxAttempts)
+    ) {
+      const auditEntry = createAuditEntry({
+        category: "recovery",
+        action: "recovery.skipped",
+        actor: "system",
+        correlationIds: {
+          runId: run.runId,
+          scheduleId: run.metadata?.scheduleId as string | undefined,
+          batchId: run.metadata?.batchId as string | undefined,
+        },
+        previousState: "failed",
+        newState: "failed",
+        metadata: {
+          reason:
+            run.error?.retryable === false
+              ? "skipped: non-retryable"
+              : "skipped: max-attempts-reached",
+          attempt: run.attempt,
+          maxAttempts: run.maxAttempts,
+        },
+        clock,
+      });
+      await auditEmitter.append(auditEntry);
+
+      const alert = createAlertEntry({
+        severity: "warn",
+        category: "recovery",
+        message: `Recovery skipped for run ${run.runId}: ${run.error?.retryable === false ? "non-retryable failure" : "max attempts reached"}`,
+        correlationIds: { runId: run.runId },
+        deduplicationKey: `recovery-skip-non-retryable-${run.runId}`,
+        clock,
+      });
+      alertEmitter.emit(alert);
+
+      results.push({
+        runId: run.runId,
+        previousState,
+        newState: "failed",
+        action: "skipped",
+        reason:
+          run.error?.retryable === false
+            ? "skipped: non-retryable"
+            : "skipped: max-attempts-reached",
+        alertEmitted: true,
+        auditRecorded: true,
+      });
+      continue;
+    }
+
+    // Normal recovery path
+    try {
+      const recovered = await recoverRun(run, adapter, repo);
+      const recoveryMeta = recovered.metadata?.recovery as
+        { action?: string; reason?: string } | undefined;
+
+      // Emit audit entry for recovery action
+      const auditEntry = createAuditEntry({
+        category: "recovery",
+        action: `recovery.${recoveryMeta?.action ?? "unknown"}`,
+        actor: "system",
+        correlationIds: {
+          runId: run.runId,
+          scheduleId: run.metadata?.scheduleId as string | undefined,
+          batchId: run.metadata?.batchId as string | undefined,
+        },
+        previousState,
+        newState: recovered.state,
+        metadata: redactLog({
+          reason: recoveryMeta?.reason ?? "No recovery needed",
+          action: recoveryMeta?.action ?? "unknown",
+        }),
+        clock,
+      });
+      await auditEmitter.append(auditEntry);
+
+      // Emit alert based on recovery outcome
+      const alertSeverity = recovered.state === "failed" ? "error" : "info";
+      const alert = createAlertEntry({
+        severity: alertSeverity,
+        category: "recovery",
+        message: `Recovery ${recoveryMeta?.action ?? "unknown"} for run ${run.runId}: ${recoveryMeta?.reason ?? ""}`,
+        correlationIds: { runId: run.runId },
+        deduplicationKey: `recovery-${recoveryMeta?.action}-${run.runId}`,
+        clock,
+      });
+      alertEmitter.emit(alert);
+
+      results.push({
+        runId: run.runId,
+        previousState,
+        newState: recovered.state,
+        action: (recoveryMeta?.action as string) ?? "unknown",
+        reason: recoveryMeta?.reason ?? "No recovery needed",
+        alertEmitted: true,
+        auditRecorded: true,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+
+      // Emit audit entry for recovery error
+      const auditEntry = createAuditEntry({
+        category: "recovery",
+        action: "recovery.failed",
+        actor: "system",
+        correlationIds: {
+          runId: run.runId,
+          scheduleId: run.metadata?.scheduleId as string | undefined,
+          batchId: run.metadata?.batchId as string | undefined,
+        },
+        previousState,
+        newState: previousState,
+        metadata: redactLog({ error: message }),
+        clock,
+      });
+      await auditEmitter.append(auditEntry);
+
+      // Emit critical alert for recovery failure
+      const alert = createAlertEntry({
+        severity: "critical",
+        category: "recovery",
+        message: `Recovery FAILED for run ${run.runId}: ${redactErrorString(message)}`,
+        correlationIds: { runId: run.runId },
+        deduplicationKey: `recovery-failed-${run.runId}`,
+        clock,
+      });
+      alertEmitter.emit(alert);
+
+      results.push({
+        runId: run.runId,
+        previousState,
+        newState: previousState,
+        action: "error",
+        reason: `Recovery failed: ${redactErrorString(message)}`,
+        alertEmitted: true,
+        auditRecorded: true,
+        error: redactErrorString(message),
       });
     }
   }
