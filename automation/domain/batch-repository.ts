@@ -37,7 +37,7 @@ export interface BatchRepository {
 
   /**
    * Creates a new batch job.
-   * @throws {RecordAlreadyExistsError} if batchId already exists
+   * @throws {Error} with message `Record already exists: <batchId>` if batchId already exists
    */
   createJob(job: BatchJob): Promise<BatchJob>;
 
@@ -49,8 +49,10 @@ export interface BatchRepository {
 
   /**
    * Updates an existing batch job.
-   * @throws {RecordNotFoundError} if batchId does not exist
-   * @throws {ConcurrencyConflictError} if revision mismatch
+   * @throws {Error} with message `Record not found: <batchId>` if batchId does not exist
+   *
+   * Note: `BatchJob` carries no `revision` (decision D-04 Opção A), so no
+   * revision-mismatch/concurrency-conflict case exists.
    */
   updateJob(job: BatchJob): Promise<BatchJob>;
 
@@ -58,7 +60,7 @@ export interface BatchRepository {
 
   /**
    * Creates a new batch item.
-   * @throws {RecordAlreadyExistsError} if itemId already exists
+   * @throws {Error} with message `Record already exists: <itemId>` if itemId already exists
    */
   createItem(item: BatchItem): Promise<BatchItem>;
 
@@ -70,7 +72,7 @@ export interface BatchRepository {
 
   /**
    * Updates an existing batch item.
-   * @throws {RecordNotFoundError} if itemId does not exist
+   * @throws {Error} with message `Record not found: <itemId>` if itemId does not exist
    */
   updateItem(item: BatchItem): Promise<BatchItem>;
 
