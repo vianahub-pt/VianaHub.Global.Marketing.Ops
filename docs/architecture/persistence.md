@@ -1,10 +1,157 @@
-# Filesystem Persistence & Recovery
+# Persistence Architecture — Filesystem & SQL Server
 
-> Sprint 3 — Production Persistence + First Real Controlled Adapter
+> Sprint 3 (Filesystem) + Sprint 5 (SQL Server) — Production Persistence
 
 ## Overview
 
-The persistence layer provides durable storage for `RunRecord` and `Checkpoint` data using the local filesystem. This enables recovery after process crashes, restarts, and other interruptions without requiring a database.
+The persistence layer provides durable storage for domain entities using
+a **pluggable provider architecture**. Two providers are supported:
+
+| Provider | Selection | Status |
+|---|---|---|
+| **Filesystem** (default) | `PERSISTENCE_PROVIDER=filesystem` or unset | Active since Sprint 3 |
+| **SQL Server** | `PERSISTENCE_PROVIDER=sqlserver` | Added in Sprint 5 |
+
+Provider selection is centralized, configuration-driven, and fail-closed
+(AC-05). Unknown values produce an actionable error. The domain and
+application layers remain technology-agnostic — they depend only on
+repository contracts (AC-03, AP-02).
+
+```text
+Domain / Application
+  -> Repository Contracts
+      -> Filesystem Adapters  (FileRunRepository, FileCheckpointRepository, ...)
+      -> SQL Server Adapters  (SqlRunRepository, SqlCheckpointRepository, ...)
+          -> opsdb
+```
+
+### Provider Selection
+
+```typescript
+// automation/adapters/sql/persistence-config.ts
+const provider = resolvePersistenceProvider(process.env);
+// "filesystem" | "sqlserver" — throws PersistenceConfigError on unknown
+```
+
+- Variable absent → safe `filesystem` default (backward compatible, AC-64).
+- `sqlserver` → SQL configuration is validated with Zod BEFORE any
+  connection attempt (AC-08).
+- Unknown value → fail closed with actionable error.
+
+---
+
+## SQL Server Provider (Sprint 5)
+
+### Target Database
+
+`opsdb` is the sole application database (AP-01). No cross-database
+foreign keys, queries, views, synonyms or runtime dependencies on
+`identitydb`, `geritdb`, or other application databases.
+
+### Configuration
+
+| Variable | Description | Default |
+|---|---|---|
+| `SQL_SERVER_HOST` | Server hostname | (required) |
+| `SQL_SERVER_PORT` | Port number | `1433` |
+| `SQL_SERVER_DATABASE` | Target database | `opsdb` |
+| `SQL_SERVER_USER` | Login user | (required) |
+| `SQL_SERVER_PASSWORD` | Login password (secret) | (required) |
+| `PERSISTENCE_PROVIDER` | `filesystem` or `sqlserver` | `filesystem` |
+
+See `.env.example` for placeholders. **Never** commit real credentials.
+
+TLS behavior is explicit and fail-closed: `encrypt: true`,
+`trustServerCertificate: false`.
+
+### Database Schema
+
+The migration `database/migrations/001_initial_schema.sql` creates:
+
+| Table | Purpose | Key Properties |
+|---|---|---|
+| `dbo.SchemaMigrations` | Migration ledger | Version unique, checksum SHA-256 |
+| `dbo.Runs` | Complete RunRecord + metadata | PK `RunId`, unique `IdempotencyKey`, `Revision` for optimistic concurrency |
+| `dbo.Checkpoints` | Append-only checkpoint history | FK to `Runs`, ordered by `(CreatedAt, Attempt)` |
+| `dbo.Schedules` | Schedule records | `Revision` for optimistic concurrency |
+| `dbo.Batches` | Batch job records | No `Revision` (D-04) |
+| `dbo.BatchItems` | Items belonging to a batch | FK to `Batches` |
+| `dbo.AuditEntries` | Append-only audit log | ISJSON constraint on metadata |
+
+JSON fields use `NVARCHAR(MAX)` with `ISJSON` constraints where
+appropriate (AC-35). Relational columns are used for identity,
+filtering, uniqueness, concurrency, state, timestamps and relationships.
+
+### Migrations
+
+Migrations are versioned files in `database/migrations/`. Application is
+**human-controlled** via `migration-runner.ts` with an explicit approval
+flag (`apply=true`). Ordinary PR CI never migrates production (AC-13,
+AP-04). See `database/README.md` for the complete procedure.
+
+### Optimistic Concurrency
+
+Run and Schedule updates compare the `Revision` column atomically:
+
+```sql
+UPDATE dbo.Runs SET ..., Revision = Revision + 1
+WHERE RunId = @runId AND Revision = @expectedRevision;
+```
+
+A zero-row update distinguishes not-found from revision conflict and
+maps the latter to `ConcurrencyConflictError` (AC-20, AC-21).
+
+### Transactions
+
+Bounded transactions are used only for logical multi-write consistency.
+Transactions roll back on failure, preserve idempotency, prevent partial
+logical writes, and never span external platform API calls (AC-37,
+AC-38).
+
+### SQL Adapters
+
+| Adapter | Contract | Key Properties |
+|---|---|---|
+| `SqlRunRepository` | `RunRepository` | CRUD, list/filter, idempotency, concurrency |
+| `SqlCheckpointRepository` | `CheckpointRepository` | Append-only, `getLatest`, chronological ordering |
+| `SqlScheduleRepository` | `ScheduleRepository` | CRUD, list/filter, concurrency, idempotency lookup |
+| `SqlBatchRepository` | `BatchRepository` | 9 methods, FK integrity on BatchItems |
+| `SqlAuditRepository` | `AuditRepository` | Append-only, filters (category, action, time range) |
+
+All SQL statements are parameterized (AC-36). Shared helpers live in
+`sql-row-helpers.ts`. The driver (`mssql` / tedious) is lazy-loaded
+behind an injectable `SqlExecutor` interface — environments using only
+filesystem persistence never require the driver.
+
+### FS→SQL Import
+
+The import module (`fs-to-sql-import.ts`) reads data from filesystem
+repositories and inserts via SQL repositories:
+
+- **Explicit and non-destructive:** source `.data` is never deleted or
+  modified (AC-45, AC-48).
+- **Preserves:** RunId, idempotency keys, UTC timestamps, states,
+  checkpoint order (AC-46).
+- **Duplicate detection:** existing records are reported as conflicts,
+  never overwritten (AC-47).
+- **Dry-run mode** available for validation before actual import.
+
+### Recovery
+
+Recovery logic (`recovery.ts` + `recoveryLoop`) works identically with
+both providers. The `recoverRun` function evaluates each interrupted
+run's remote status and applies the appropriate strategy. Recovery is
+covered by env-gated SQL integration tests (`recovery-sql-integration.test.ts`,
+AC-44).
+
+---
+
+## Filesystem Provider
+
+The persistence layer provides durable storage for `RunRecord` and
+`Checkpoint` data using the local filesystem. This enables recovery
+after process crashes, restarts, and other interruptions without
+requiring a database.
 
 The design follows the existing architecture principles:
 
@@ -259,9 +406,31 @@ Thrown when:
 
 ---
 
+## FS×SQL Divergences (D-12)
+
+The following divergences between filesystem and SQL Server backends are
+**deliberate** and documented:
+
+| # | Behavior | Filesystem | SQL Server |
+|---|---|---|---|
+| 1 | `IdempotencyKey` uniqueness (Runs) | Indexes only by `runId`; accepts duplicate key with different `runId`; `findByIdempotencyKey` is non-deterministic | Enforced by `UQ_Runs_IdempotencyKey`; `create` returns the durable winner; never stores 2nd row |
+| 2 | Checkpoint orphan FK | Accepts checkpoint without existing run | Rejects via `FK_Checkpoints_Runs` |
+| 3 | `list()` ordering | Non-deterministic (`readdirSync`) | Deterministic (`ORDER BY RunId ASC`) |
+| 4 | Schedule `enabled` column | Preserves independent `config.enabled` and `enabled` fields | Single `Enabled` BIT column; rejects divergent pair via `assertEnabledInvariant` |
+
+The shared contract test battery (`repository-contract.test.ts`) asserts
+only what both backends guarantee. Backend-specific behavior is tested
+in dedicated `describe` blocks.
+
+---
+
 ## Security Considerations
 
 1. **Path traversal protection:** All file paths are validated using `safeResolve()` from `path-security.ts`
 2. **No secrets in records:** Credentials are never stored in RunRecord, Checkpoint, or metadata
 3. **Atomic writes prevent partial exposure:** Temp files are renamed atomically
 4. **Zod validation on read:** All deserialized data is validated before use
+5. **Parameterized SQL:** All SQL statements use parameterized queries — no untrusted concatenation (AC-36)
+6. **Sanitized errors:** Connection errors never expose passwords or connection strings
+7. **Least privilege:** Runtime SQL user has DML-only access; migration user has DDL access (AC-61, AC-62)
+8. **No secrets in source:** `.env.example` contains names and placeholders only
