@@ -23,7 +23,7 @@ export interface RunRecord {
   metadata?: Record<string, unknown>;
 }
 
-const runStateSchema = z.enum([
+export const runStateSchema = z.enum([
   "queued",
   "running",
   "waiting_manual",
