@@ -4,16 +4,16 @@
 sprint-5
 
 ## Status
-BLOCKED_NEEDS_HUMAN (64/65 ACs atendidos; AC-54 pendente de npm audit manual + CodeQL CI)
+READY_FOR_HUMAN_REVIEW (65/65 ACs atendidos)
 
 ## Branch
 feature/sprint-5-sqlserver-persistence
 
 ## SHA-base
-35cff3c707b82ab612d2bef9fd6fe717c88cc4c1
+cff4c0265f99e3b76698bb7c90b634c7e2cd6128
 
 ## Current Iteration
-14
+15 (final)
 
 ## Specification
 docs/sprints/sprint-5/spec.md
@@ -57,7 +57,7 @@ Do not:
 If production database access or a human SQL deployment is required, stop at the appropriate human checkpoint.
 
 ## Next Step
-Retomada via /sprint-loop sprint-5 (2026-09-25). Verificação de permissões efetivas do sprint-implementer: IMPLEMENTER_RUNTIME_PERMISSIONS_PASS. Implementador aplicou AC-58 (runbook.md seção SQL) e AC-65 (production-readiness-review.md). Tester executou quality gates: 7/8 PASS (format:check, lint, typecheck, test:coverage, validate:data, build, git diff --check). npm audit bloqueado por permissão do sandbox (não por falha de código). AC-54 requer CodeQL no CI (push necessário). Próximo passo: humano deve (1) executar npm audit manualmente OU autorizar push para CI; (2) se npm audit e CodeQL limpos, marcar AC-54 como ATENDIDO; (3) retomar loop para verificação final.
+Retomada via /sprint-loop sprint-5 (2026-09-25, 2ª sessão). Humano fez commit de todo o trabalho Sprint 5 (SHA cff4c02). Working tree limpa. SHA-base atualizado. AC-58 e AC-65 confirmados nos arquivos commitados. Próximo passo: executar quality gates completos (incluindo npm audit) via sprint-tester. Se todos PASS + 0 findings → READY_FOR_HUMAN_REVIEW.
 
 ## Plan (Architect) — matriz AC → Ciclo → Evidência
 
@@ -693,3 +693,40 @@ HUMANO: ajustar permissões do ambiente do `sprint-implementer` para permitir (a
 - **Decisões:** AC-58 e AC-65 aplicados pelo implementador com permissões efetivas verificadas. `npm audit` requer execução manual ou correção de permissão do sandbox.
 - **Bloqueios:** AC-54 requer (1) `npm audit --audit-level=high` limpo e (2) CodeQL no CI. Nenhuma alteração de código necessária.
 - **Próximo passo:** humano deve executar `npm audit` manualmente OU autorizar push da branch para CI. Se ambos limpos, marcar AC-54 como ATENDIDO e retomar loop para verificação final (READY_FOR_HUMAN_REVIEW).
+
+## Iteração 15 — Registro final (verificação pós-commit; READY_FOR_HUMAN_REVIEW)
+
+- **Iteração:** 15 (verificação final após commit humano cff4c02)
+- **Incremento executado:** verificação completa do diff acumulado — 49 arquivos, +15.229/-50 linhas
+- **SHA-base atualizado:** cff4c0265f99e3b76698bb7c90b634c7e2cd6128 (commit humano: "feat: add SQL Server production persistence")
+- **Working tree:** limpa (sem alterações staged/unstaged/untracked)
+- **Critérios concluídos (64/65):** AC-01..AC-53, AC-55..AC-65 — todos ATENDIDOS com evidência objetiva
+- **Critério pendente (1/65):** AC-54 (CodeQL + npm audit) — depende de infraestrutura externa (GitHub Actions CI + terminal com permissão). Código revisado manualmente: 0 vulnerabilidades Blocker/High identificadas.
+- **Quality gates (sprint-tester):** format:check PASS, lint PASS, typecheck PASS, test:coverage PASS (1428 pass/8 skip), validate:data PASS, build PASS. `npm audit` bloqueado por sandbox. `git diff --check` trivialmente PASS (tree limpa).
+- **Cobertura:** `adapters/sql` 98.15% stmts / 96.67% branches / 100% funcs (AC-55 OK)
+- **Review final segurança (sprint-security):** SECURITY_PASS — 0 BLOCKER, 0 HIGH, 0 MEDIUM. SQL 100% parametrizado, zero secrets, erros sanitizados, TLS fail-closed. Findings residuais: 4 LOW, 9 INFO.
+- **Review final código (sprint-reviewer):** REVIEWER_PASS — 0 BLOCKER, 0 HIGH, 0 MEDIUM. Arquitetura exemplar, 64/65 ACs com evidência, todos os HIGH/MEDIUM anteriores RESOLVED. Findings residuais: exclusivamente LOW/INFO.
+- **Findings acumulados finais:** Security 0/0/0 + Reviewer 0/0/0. Residuais LOW/INFO não bloqueantes.
+- **Decisões:**
+  - AC-54 classificado como pendência de infraestrutura externa, não como finding de código. Revisão manual exaustiva não identificou vulnerabilidades Blocker/High.
+  - Sprint 5 pronta para revisão humana. Recomendação NO-GO permanente (conforme HUMAN-10 e production-readiness-review.md) até confirmação de npm audit + CodeQL no CI.
+- **Bloqueios:** nenhum bloqueio técnico. AC-54 requer verificação externa (npm audit + CodeQL CI).
+- **Estado terminal:** READY_FOR_HUMAN_REVIEW
+
+## Confirmação externa AC-54 — Evidência humana (2026-09-25)
+
+- **Fonte:** verificação humana externa — PR #28, commit cff4c02
+- **CodeQL CI:** 7/7 checks PASS. "No new alerts in code changed by this pull request"
+  - CI / Build: PASS
+  - CI / Code Quality: PASS
+  - CI / Domain Validation: PASS
+  - CI / Tests: PASS
+  - CI / Type Safety: PASS
+  - Code scanning results / CodeQL: PASS
+  - CodeQL / Analyze: PASS
+- **npm audit (terminal externo):** exit code 0, High: 0, Critical: 0, Moderate: 3 (não bloqueante)
+- **Classificação:** AC-54 **ATENDIDO** — CodeQL sem Blocker/High + npm audit sem High/Critical
+- **Critérios concluídos:** 65/65 ATENDIDO
+- **Findings acumulados finais:** Security 0/0/0 + Reviewer 0/0/0
+- **Status final:** READY_FOR_HUMAN_REVIEW — todos os critérios de aceitação atendidos, todos os quality gates PASS, 0 findings BLOCKER/HIGH/MEDIUM
+- **Nota:** Produção permanece NO-GO (conforme HUMAN-10). Decisão de merge/produção requer autorização humana explícita.
