@@ -22,7 +22,7 @@
     "ops:report": "npm run ops -- report"
   },
   "dependencies": {
-    "mssql": "^12.7.2",
+    "mssql": "^12.7.4",
     "zod": "^3.24.4"
   },
   "devDependencies": {
